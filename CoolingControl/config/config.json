@@ -1,0 +1,20 @@
+{
+    "ScriptPath": "config/cooling_control.lua",
+    "UpdateIntervalMs": 1000,
+    "LogLevel": "Information",
+    "LHMConfig": {
+      "CpuEnabled": true,
+      "GpuEnabled": true,
+      "MotherboardEnabled": true,
+      "MemoryEnabled": false,
+      "StorageEnabled": false,
+      "NetworkEnabled": false,
+      "ControllerEnabled": false,
+      "BatteryEnabled": false,
+      "PsuEnabled": false
+    },
+    "Controls": [
+    ],
+    "Sensors": [
+    ]
+  }

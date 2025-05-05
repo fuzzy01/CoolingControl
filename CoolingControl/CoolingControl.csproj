@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0-windows;net9.0-windows</TargetFrameworks>
+    <RollForward>Major</RollForward>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0.0</InformationalVersion>
+    <Author>Peter Laszlo</Author>
+    <ApplicationIcon>cooling_control.ico</ApplicationIcon>
+    <AssemblyTitle>CoolingControl</AssemblyTitle>
+    <AssemblyName>CoolingControl</AssemblyName>    
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.5-pre407" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="9.0.4" />
+    <PackageReference Include="NLua" Version="1.7.5" />
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="app.manifest" />
+    <None Include="config/config.json" CopyToOutputDirectory="Always" Link="config/config.json" />
+    <None Include="config/config_sample.json" CopyToOutputDirectory="Always" Link="config/config_sample.json" />
+    <None Include="config/cooling_control.lua" CopyToOutputDirectory="Always" Link="config/cooling_control.lua" />
+    <None Include="config/cooling_functions.lua" CopyToOutputDirectory="Always" Link="config/cooling_functions.lua" />
+    <None Include="config/cooling_control_aio_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_aio_sample.lua" />
+    <None Include="config/cooling_control_aircooling_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_aircooling_sample.lua" />
+  </ItemGroup>
+</Project>

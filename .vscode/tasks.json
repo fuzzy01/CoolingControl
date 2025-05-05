@@ -1,0 +1,142 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Inno Setup Installer net8.0",
+      "type": "shell",
+      "command": "C:/Program Files (x86)/Inno Setup 6/ISCC.exe",
+      "args": [
+        "/FCoolingControlSetup-net8",
+        "CoolingControl/installer.iss"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "dependsOn": ["Publish CoolingControl net8.0"],
+      "presentation": {
+        "reveal": "always"
+      }
+    },    
+    {
+      "label": "Build Inno Setup Installer net9.0",
+      "type": "shell",
+      "command": "C:/Program Files (x86)/Inno Setup 6/ISCC.exe",
+      "args": [
+        "/FCoolingControlSetup-net9",
+        "CoolingControl/installer.iss"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "dependsOn": ["Publish CoolingControl net9.0"],
+      "presentation": {
+        "reveal": "always"
+      }
+    },    
+    {
+      "label": "Publish CoolingControl net8.0",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "CoolingControl/CoolingControl.csproj",
+        "-c",
+        "Release",
+        "-f",
+        "net8.0-windows",
+        "--no-self-contained",
+        "--output",
+        "CoolingControl/publish"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Publish CoolingControl net9.0",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "CoolingControl/CoolingControl.csproj",
+        "-c",
+        "Release",
+        "-f",
+        "net9.0-windows",
+        "--no-self-contained",
+        "--output",
+        "CoolingControl/publish"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },    
+    {
+      "label": "Build CoolingControl Release",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "CoolingControl/CoolingControl.csproj",
+        "-c",
+        "Release"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Build CoolingControl Debug",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "CoolingControl/CoolingControl.csproj",
+        "-c",
+        "Debug"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Clean CoolingControl",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "CoolingControl/CoolingControl.csproj"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}
