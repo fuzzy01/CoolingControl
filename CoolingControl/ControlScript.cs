@@ -11,6 +11,7 @@ public class ControlScript : IDisposable
 {
     private readonly Lua _lua;
     private readonly LuaFunction _calculate_controls;
+    private readonly LuaFunction? _on_suspend;
     private readonly LuaFunction? _on_resume;
     private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
 
@@ -20,13 +21,21 @@ public class ControlScript : IDisposable
         _lua.LoadCLRPackage();
         _lua.RegisterFunction("log_debug", typeof(ControlScript).GetMethod(nameof(LuaLogDebug), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_information", typeof(ControlScript).GetMethod(nameof(LuaLogInformation), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
+        _lua.RegisterFunction("log_error", typeof(ControlScript).GetMethod(nameof(LuaLogError), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.DoFile(config.ScriptPath);
 
         _calculate_controls = _lua["calculate_controls"] as LuaFunction ?? throw new InvalidOperationException("Lua function 'calculate_controls' is not defined in the Lua script");
+        _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
 
         _controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
         _lua["control_config"] = _controlConfigsByAlias;
+
+        if (_lua["initialize"] is LuaFunction initialize)
+        {
+            Log.Debug("Calling Lua initialize function");
+            initialize.Call();
+        }
     }
 
     private static void LuaLogDebug(string message)
@@ -39,10 +48,25 @@ public class ControlScript : IDisposable
         Log.Information("[Lua] {Message}", message);
     }
 
+    private static void LuaLogError(string message)
+    {
+        Log.Error("[Lua] {Message}", message);
+    }
+
+    public void OnSuspend()
+    {
+        if (_on_suspend != null)
+        {
+            Log.Debug("Calling Lua on_suspend function");
+            _on_suspend.Call();
+        }
+    }
+
     public void OnResume()
     {
         if (_on_resume != null)
         {
+            Log.Debug("Calling Lua on_resume function");
             _on_resume.Call();
         }
     }

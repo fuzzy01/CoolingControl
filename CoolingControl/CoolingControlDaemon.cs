@@ -87,12 +87,13 @@ public class CoolingControlDaemon : BackgroundService
                     switch (powerMode)
                     {
                         case PowerModes.Suspend:
+                            _script.OnSuspend();
                             _monitor.Suspend();
                             isSuspended = true;
                             break;
                         case PowerModes.Resume:
-                            _script.OnResume();
                             _monitor.Resume();
+                            _script.OnResume();
                             isSuspended = false;
                             break;
                     }
