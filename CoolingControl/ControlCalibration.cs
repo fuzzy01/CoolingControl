@@ -89,7 +89,6 @@ public class ControlCalibration : BackgroundService
             _calibrator.Dispose();
         }
 
-        Log.Information("CoolingControl service stopped");
     }
 
     protected bool StopControl(string control_alias, CancellationToken cancellationToken)
