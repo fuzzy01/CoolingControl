@@ -14,9 +14,9 @@ public interface IRPMCalibrator : IDisposable
     float? GetControlValue(string alias);
 
     /// <summary>
-    /// Gets the current RPM sensor value associated with the specified alias.
+    /// Gets the current RPM sensor value associated with the specified control.
     /// </summary>
-    /// <param name="alias">The alias identifying the RPM sensor.</param>
+    /// <param name="alias">The alias identifying the control.</param>
     /// <returns>The RPM sensor value if available; otherwise, <c>null</c>.</returns>
     float? GetRPMSensorValue(string alias);
 
