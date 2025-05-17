@@ -17,18 +17,18 @@ using Serilog;
 public class DefaultRPMCalibrator : IRPMCalibrator
 {
     private readonly IPlatformAdapter _adapter;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
+    private readonly ConfigHelper _config;
 
-    public DefaultRPMCalibrator(Config config, IPlatformAdapter adapter)
+    public DefaultRPMCalibrator(ConfigHelper config, IPlatformAdapter adapter)
     {
         _adapter = adapter;
-        _controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
+        _config = config;
     }
 
 
     public float? GetControlValue(string alias)
     {
-        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))
         {
             Log.Error("Control {Alias} not configured", alias);
             return null;
@@ -45,7 +45,7 @@ public class DefaultRPMCalibrator : IRPMCalibrator
 
     public float? GetRPMSensorValue(string alias)
     {
-        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))
         {
             Log.Error("Control {Alias} not configured", alias);
             return null;
@@ -68,7 +68,7 @@ public class DefaultRPMCalibrator : IRPMCalibrator
 
     public bool SetControl(string alias, float controlValue)
     {
-        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))
         {
             Log.Error("Control {Alias} not configured", alias);
             return false;
@@ -86,7 +86,7 @@ public class DefaultRPMCalibrator : IRPMCalibrator
 
     public bool ReleaseControl(string alias)
     {
-        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))
         {
             Log.Error("Control {Alias} not configured", alias);
             return false;

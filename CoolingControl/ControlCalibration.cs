@@ -8,18 +8,16 @@ using System.Text.Json;
 
 public class ControlCalibration : BackgroundService
 {
-    private readonly Config _config;
+    private readonly ConfigHelper _config;
     private readonly IRPMCalibrator _calibrator;
     private readonly string _control_alias;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
-    public ControlCalibration(Config config, string control_alias, IHostApplicationLifetime hostApplicationLifetime)
+    public ControlCalibration(ConfigHelper config, string control_alias, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
         _calibrator = new DefaultRPMCalibrator(_config, new LHMAdapter(_config));
         _control_alias = control_alias;
-        _controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
         _hostApplicationLifetime = hostApplicationLifetime;
     }
 
@@ -30,7 +28,7 @@ public class ControlCalibration : BackgroundService
 
     protected void Calibrate(CancellationToken cancellationToken)
     {
-        var controls = _control_alias != null ? [_control_alias] : _config.Controls.Select(f => f.Identifier).ToHashSet();
+        var controls = _control_alias != null ? [_control_alias] : _config.Config.Controls.Select(f => f.Identifier).ToHashSet();
         
         try
         {
@@ -44,7 +42,7 @@ public class ControlCalibration : BackgroundService
                     Log.Error("Failed to calibrate MinStart for {Alias}. Exiting ...", control_alias);
                     return;
                 }
-                _controlConfigsByAlias[control_alias].MinStart = (float)minStart;
+                _config.ControlConfigsByAlias[control_alias].MinStart = (float)minStart;
 
                 var minStop = FindMinStop(control_alias, cancellationToken);
                 if (minStop == null)
@@ -52,7 +50,7 @@ public class ControlCalibration : BackgroundService
                     Log.Error("Failed to calibrate MinStop for {Alias}. Exiting ...", control_alias);
                     return;
                 }
-                _controlConfigsByAlias[control_alias].MinStop = (float)minStop;
+                _config.ControlConfigsByAlias[control_alias].MinStop = (float)minStop;
 
                 var rpmCalibration = CalibrateRPMCurve(control_alias, cancellationToken);
                 if (rpmCalibration == null)
@@ -60,7 +58,7 @@ public class ControlCalibration : BackgroundService
                     Log.Error("Failed to calibrate RPM curve for {Alias}. Exiting ...", control_alias);
                     return;
                 }
-                _controlConfigsByAlias[control_alias].RPMCalibration = rpmCalibration;
+                _config.ControlConfigsByAlias[control_alias].RPMCalibration = rpmCalibration;
             }
 
             // Save the config

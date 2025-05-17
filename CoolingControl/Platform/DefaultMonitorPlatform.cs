@@ -18,22 +18,14 @@ using Serilog;
 public class DefaultMonitorPlatform : IMonitoringPlatform
 {
     private readonly IPlatformAdapter _adapter;
-    private readonly Dictionary<string, SensorConfig> _sensorConfigsByIdentifier;
-    private readonly HashSet<string> _sensorIdentifiers;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByIdentifier;
-    private readonly HashSet<string> _controlIdentifiers;
+    private readonly ConfigHelper _config;
     private readonly Dictionary<string, bool> _controlStates;
     private readonly Dictionary<string, float> _previousControlValues;
 
-    public DefaultMonitorPlatform(Config config, IPlatformAdapter adapter)
+    public DefaultMonitorPlatform(ConfigHelper config, IPlatformAdapter adapter)
     {
         _adapter = adapter;
-        _sensorConfigsByIdentifier = config.Sensors.ToDictionary(f => f.Identifier, f => f);
-        _sensorIdentifiers = config.Sensors.Select(f => f.Identifier).ToHashSet();
-        _controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
-        _controlConfigsByIdentifier = config.Controls.ToDictionary(f => f.Identifier, f => f);
-        _controlIdentifiers = config.Controls.Select(f => f.Identifier).ToHashSet();
+        _config = config;
 
         // Initialize previous control values to current values
         _previousControlValues = GetControlValues().Where(kvp => kvp.Value.HasValue).ToDictionary(kvp => kvp.Key, kvp => kvp.Value ?? 0f);
@@ -65,12 +57,12 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
     public Dictionary<string, float?> GetSensorValues()
     {
-        return _adapter.GetSensorValues(_sensorIdentifiers).ToDictionary(kvp => _sensorConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
+        return _adapter.GetSensorValues(_config.SensorIdentifiers).ToDictionary(kvp => _config.SensorConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
     }
 
     public Dictionary<string, float?> GetControlValues()
     {
-        return _adapter.GetControlValues(_controlIdentifiers).ToDictionary(kvp => _controlConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
+        return _adapter.GetControlValues(_config.ControlIdentifiers).ToDictionary(kvp => _config.ControlConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
     }
 
     public void ListAllSensors()
@@ -80,7 +72,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
     public Dictionary<string, bool> ReleaseControls()
     {
-        return _adapter.ReleaseControls(_controlIdentifiers);
+        return _adapter.ReleaseControls(_config.ControlIdentifiers);
     }
 
     public Dictionary<string, bool> SetControls(Dictionary<string, float> controlValues, bool force = false)
@@ -92,7 +84,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
             string alias = kvp.Key;
             float controlValue = kvp.Value;
 
-            if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+            if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))
             {
                 Log.Error("Control {Alias} not configured", kvp.Key);
                 continue;
