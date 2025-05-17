@@ -41,4 +41,83 @@ public class ConfigHelper
     public HashSet<string> ControlIdentifiers => _controlIdentifiers;
 
     public Config Config => _config;
+
+    public float? ConvertRPMToPercent(string alias, float rpm)
+    {
+        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        {
+            Log.Error("Control {Alias} not configured", alias);
+            return null;
+        }
+
+        if (controlConfig.RPMCalibration.Count <= 1)
+        {
+            Log.Error("Control {Alias} has no valid RPM calibration data", alias);
+            return null;
+        }
+
+        var rpmCalibration = controlConfig.RPMCalibration;
+        float value = 0f;
+
+        if (rpm < rpmCalibration[0].Rpm)
+        {
+            value = rpmCalibration[0].Control;
+            Log.Debug("{Alias} {Rpm} RPM is below minimum calibration data, converting to {Value}", alias, rpm, value);
+        }
+        else if (rpm > rpmCalibration[^1].Rpm)
+        {
+            value = rpmCalibration[^1].Control;
+            Log.Debug("{Alias} {Rpm} RPM is above maximum calibration data, converting to {Value}", alias, rpm, value);
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < rpmCalibration.Count - 1; i++)
+            {
+                var lower = rpmCalibration[i];
+                var upper = rpmCalibration[i + 1];
+
+                if (rpm >= lower.Rpm && rpm <= upper.Rpm)
+                {
+                    var rpmDelta = upper.Rpm - lower.Rpm;
+
+                    if (rpmDelta == 0)
+                    {
+                        value = lower.Control;
+                        Log.Debug("{Alias} {Rpm} RPM is {LowerRpm}, converting to {Value}", alias, rpm, lower.Rpm, value);
+                        break;
+                    }
+
+                    value = lower.Control + (upper.Control - lower.Control) * ((rpm - lower.Rpm) / rpmDelta);
+                    Log.Debug("{Alias} {Rpm} RPM is between {LowerRpm} and {UpperRpm}, converting to {Value}", alias, rpm, lower.Rpm, upper.Rpm, value);
+                    break;
+                }
+            }
+
+            if (i == rpmCalibration.Count - 1)
+            {
+                Log.Error("Calibration data is not sorted for {Alias}", alias);
+                return null;
+            }
+        }
+
+        return value;
+    }
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

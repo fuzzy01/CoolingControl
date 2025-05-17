@@ -9,27 +9,27 @@ using Serilog;
 /// </summary>
 public class ControlScript : IDisposable
 {
+    private readonly ConfigHelper _config;
     private readonly Lua _lua;
     private readonly LuaFunction _calculate_controls;
     private readonly LuaFunction? _on_suspend;
     private readonly LuaFunction? _on_resume;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
 
-    public ControlScript(Config config)
+    public ControlScript(ConfigHelper config)
     {
+        _config = config;
         _lua = new Lua();
         _lua.LoadCLRPackage();
         _lua.RegisterFunction("log_debug", typeof(ControlScript).GetMethod(nameof(LuaLogDebug), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_information", typeof(ControlScript).GetMethod(nameof(LuaLogInformation), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_error", typeof(ControlScript).GetMethod(nameof(LuaLogError), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
-        _lua.DoFile(config.ScriptPath);
+        _lua.DoFile(config.Config.ScriptPath);
 
         _calculate_controls = _lua["calculate_controls"] as LuaFunction ?? throw new InvalidOperationException("Lua function 'calculate_controls' is not defined in the Lua script");
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
 
-        _controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
-        _lua["control_config"] = _controlConfigsByAlias;
+        _lua["control_config"] = _config.ControlConfigsByAlias;
 
         if (_lua["initialize"] is LuaFunction initialize)
         {
@@ -104,65 +104,13 @@ public class ControlScript : IDisposable
                 {
                     // Convert RPM to control value
                     var rpm = Convert.ToSingle(entry["rpm"]);
-
-                    if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+                    var value = _config.ConvertRPMToPercent(alias, rpm);
+                    if (value == null)
                     {
-                        Log.Error("Control {Alias} not configured", alias);
                         continue;
                     }
 
-                    if (controlConfig.RPMCalibration.Count <= 1)
-                    {
-                        Log.Error("Control {Alias} has no valid RPM calibration data", alias);
-                        continue;
-                    }
-
-                    var rpmCalibration = controlConfig.RPMCalibration;
-                    float value = 0f;
-
-                    if (rpm < rpmCalibration[0].Rpm)
-                    {
-                        value = rpmCalibration[0].Control;
-                        Log.Debug("{Alias} {Rpm} RPM is below minimum calibration data, setting control to {Value}", alias, rpm, value);
-                    }
-                    else if (rpm > rpmCalibration[^1].Rpm)
-                    {
-                        value = rpmCalibration[^1].Control;
-                        Log.Debug("{Alias} {Rpm} RPM is above maximum calibration data, setting control to {Value}", alias, rpm, value);
-                    }
-                    else
-                    {
-                        int i;
-                        for (i = 0; i < rpmCalibration.Count - 1; i++)
-                        {
-                            var lower = rpmCalibration[i];
-                            var upper = rpmCalibration[i + 1];
-
-                            if (rpm >= lower.Rpm && rpm <= upper.Rpm)
-                            {
-                                var rpmDelta = upper.Rpm - lower.Rpm;
-
-                                if (rpmDelta == 0)
-                                {
-                                    value = lower.Control;
-                                    Log.Debug("{Alias} {Rpm} RPM is {LowerRpm}, setting control to {Value}", alias, rpm, lower.Rpm, value);
-                                    break;
-                                }
-
-                                value = lower.Control + (upper.Control - lower.Control) * ((rpm - lower.Rpm) / rpmDelta);
-                                Log.Debug("{Alias} {Rpm} RPM is between {LowerRpm} and {UpperRpm}, setting control to {Value}", alias, rpm, lower.Rpm, upper.Rpm, value);
-                                break;
-                            }
-                        }
-
-                        if (i == rpmCalibration.Count - 1)
-                        {
-                            Log.Error("Calibration data is not sorted for {Alias}", alias);
-                            continue;
-                        }
-                    }
-
-                    controlValues.Add(alias, value);
+                    controlValues.Add(alias, (float)value);
                     continue;
                 }
             }

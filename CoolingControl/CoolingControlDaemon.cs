@@ -14,7 +14,7 @@ using CoolingControl.Platform;
 /// </summary>
 public class CoolingControlDaemon : BackgroundService
 {
-    private readonly Config _config;
+    private readonly ConfigHelper _config;
     private readonly IMonitoringPlatform _monitor;
     private readonly ControlScript _script;
     private readonly int _intervalMs;
@@ -22,12 +22,12 @@ public class CoolingControlDaemon : BackgroundService
     private readonly BlockingCollection<PowerModes> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
-    public CoolingControlDaemon(Config config, IHostApplicationLifetime hostApplicationLifetime)
+    public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
         _monitor = new DefaultMonitorPlatform(_config, new LHMAdapter(_config));
         _script = new ControlScript(_config);
-        _intervalMs = _config.UpdateIntervalMs;
+        _intervalMs = _config.Config.UpdateIntervalMs;
         _messageQueue = new BlockingCollection<PowerModes>();
         SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
         _hostApplicationLifetime = hostApplicationLifetime;
