@@ -28,6 +28,13 @@ public class ConfigHelper
         _controlIdentifiers = _config.Controls.Select(f => f.Identifier).ToHashSet();
     }
 
+    public void SaveConfig()
+    {
+        var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText("config/config.json", jsonString);
+        Log.Information("Configuration saved successfully to config/config.json");
+    }
+    
     public Dictionary<string, SensorConfig> SensorConfigsByAlias => _sensorConfigsByAlias;
 
     public Dictionary<string, SensorConfig> SensorConfigsByIdentifier => _sensorConfigsByIdentifier;
@@ -62,12 +69,12 @@ public class ConfigHelper
         if (rpm < rpmCalibration[0].Rpm)
         {
             value = rpmCalibration[0].Control;
-            Log.Debug("{Alias} {Rpm} RPM is below minimum calibration data, converting to {Value}", alias, rpm, value);
+            Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
         }
         else if (rpm > rpmCalibration[^1].Rpm)
         {
             value = rpmCalibration[^1].Control;
-            Log.Debug("{Alias} {Rpm} RPM is above maximum calibration data, converting to {Value}", alias, rpm, value);
+            Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
         }
         else
         {
@@ -84,12 +91,12 @@ public class ConfigHelper
                     if (rpmDelta == 0)
                     {
                         value = lower.Control;
-                        Log.Debug("{Alias} {Rpm} RPM is {LowerRpm}, converting to {Value}", alias, rpm, lower.Rpm, value);
+                        Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
                         break;
                     }
 
                     value = lower.Control + (upper.Control - lower.Control) * ((rpm - lower.Rpm) / rpmDelta);
-                    Log.Debug("{Alias} {Rpm} RPM is between {LowerRpm} and {UpperRpm}, converting to {Value}", alias, rpm, lower.Rpm, upper.Rpm, value);
+                    Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
                     break;
                 }
             }

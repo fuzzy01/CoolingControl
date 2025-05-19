@@ -62,10 +62,7 @@ public class ControlCalibration : BackgroundService
             }
 
             // Save the config
-            var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText("config/config.json", jsonString);
-            Log.Information("Config saved to config/config.json");
-
+            _config.SaveConfig();
         }
         catch (OperationCanceledException)
         {
