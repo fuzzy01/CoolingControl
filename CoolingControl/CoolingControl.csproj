@@ -32,11 +32,14 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
+<ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <None Include="config/config.json" CopyToOutputDirectory="Always" Link="config/config.json" />
+    <None Include="config/cooling_control.lua" CopyToOutputDirectory="Always" Link="config/cooling_control.lua" />
+</ItemGroup>
+
   <ItemGroup>
     <None Include="app.manifest" />
-    <None Include="config/config.json" CopyToOutputDirectory="Always" Link="config/config.json" />
     <None Include="config/config_sample.json" CopyToOutputDirectory="Always" Link="config/config_sample.json" />
-    <None Include="config/cooling_control.lua" CopyToOutputDirectory="Always" Link="config/cooling_control.lua" />
     <None Include="config/cooling_functions.lua" CopyToOutputDirectory="Always" Link="config/cooling_functions.lua" />
     <None Include="config/cooling_control_aio_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_aio_sample.lua" />
     <None Include="config/cooling_control_aircooling_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_aircooling_sample.lua" />
