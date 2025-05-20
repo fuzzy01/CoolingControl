@@ -105,20 +105,24 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
     ],
     "Sensors": [
       {
-        "Alias": "CPU Package",
-        "Identifier": "/intelcpu/0/temperature/22"
+        "Identifier": "/intelcpu/0/temperature/22",
+        "Alias": "CPU Package"
       },
       {
-        "Alias": "CPU Power",
-        "Identifier": "/intelcpu/0/power/0"
+        "Identifier": "/intelcpu/0/power/0",
+        "Alias": "CPU Power"
       },
       {
-        "Alias": "GPU Core",
-        "Identifier": "/gpu-nvidia/0/temperature/0"
+        "Identifier": "/gpu-nvidia/0/temperature/0",
+        "Alias": "GPU Core"
       },
       {
-        "Alias": "GPU Package",
-        "Identifier": "/gpu-nvidia/0/power/0"
+        "Identifier": "/gpu-nvidia/0/temperature/2",
+        "Alias": "GPU Hot Spot"
+      },
+      {
+        "Identifier": "/gpu-nvidia/0/power/0",
+        "Alias": "GPU Power"
       }
     ]
   }
@@ -137,8 +141,8 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
   - `StepDown`: Maximum step down in % per update interval (default: 8%).
 
-1. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
-2. **Edit cooling_control.lua**: Customize the Lua script for specific fan control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.kua) or create your own.
+4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
+5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.kua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
 
 **Example for AIO**:
 
@@ -203,6 +207,20 @@ function calculate_controls(sensors)
     return result
 end
 ```
+
+- Description of the functions:
+  - `calculate_controls(sensors)`: Main function for calculating fan/pump speeds based on sensor data. The `sensors` parameter is a table containing the sensor values defined in `config.json`. The function returns a table with the calculated RPM values (rpm field) or percentage value (value field) for each control defined in `config.json`. Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
+  - `on_resume()`: Called when the system resumes from sleep. You can use this to reset any state.
+  - `on_suspend()`: Called when the system is about to suspend. You can use this to reset any state.
+- Description of the functions in the Lua library `cooling_functions.lua`:
+  - `cf.on_resume()`: A function that should be called when the system resumes from sleep.
+  - `cf.apply_ema()`: A function that applies exponential moving average to smooth out sensor readings.
+  - `cf.apply_linear_curve()`: A function that applies a linear curve to map sensor values to fan/pump speeds based on the defined curve.
+  - `cf.apply_hysteresis()`: A function that applies hysteresis logic to prevent rapid changes in fan/pump speeds based on sensor fluctuations.
+  - `cf.aio_control()`: A function that calculates the fan and pump speeds based on the CPU power and other parameters. Limits for pump and fan speeds should be set according to noise preferences and AIO size.
+  - `cf.log_debug()`: A function that logs debug messages to the log file. You can use this to log any information you need for debugging purposes.
+  - `cf.log_info()`: A function that logs information messages to the log file. You can use this to log any information you need for debugging purposes.
+  - `cf.log_error()`: A function that logs error messages to the log file. You can use this to log any information you need for debugging purposes.
 
 ## Usage
 
