@@ -2,7 +2,7 @@ namespace CoolingControl.Platform;
 
 /// <summary>
 /// Defines an interface for RPM calibration, providing methods to get and set control values,
-/// retrieve RPM sensor values, and release control for specified aliases or identifiers.
+/// retrieve RPM sensor values, and release control for specified controls.
 /// </summary>
 public interface IRPMCalibrator : IDisposable
 {
