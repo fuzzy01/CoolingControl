@@ -96,7 +96,6 @@ public class ControlScript : IDisposable
                 {
                     var value = Convert.ToSingle(entry["value"]);
                     controlValues.Add(alias, value);
-                    // Log.Debug("Control value: {Alias} = {Value}", alias, value);
                     continue;
                 }
 
@@ -106,9 +105,7 @@ public class ControlScript : IDisposable
                     var rpm = Convert.ToSingle(entry["rpm"]);
                     var value = _config.ConvertRPMToPercent(alias, rpm);
                     if (value == null)
-                    {
                         continue;
-                    }
 
                     controlValues.Add(alias, (float)value);
                     continue;
