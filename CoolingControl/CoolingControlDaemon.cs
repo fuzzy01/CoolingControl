@@ -61,6 +61,7 @@ public class CoolingControlDaemon : BackgroundService
         try
         {
             bool isSuspended = false;
+            int errorCount = 0;
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
@@ -80,6 +81,12 @@ public class CoolingControlDaemon : BackgroundService
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Error in control loop");
+                    errorCount++;
+                    if (errorCount >= 10)
+                    {
+                        Log.Error("Too many errors in control loop, stopping service");
+                        break;
+                    }
                 }
 
                 if (_messageQueue.TryTake(out var powerMode, _intervalMs, cancellationToken))
