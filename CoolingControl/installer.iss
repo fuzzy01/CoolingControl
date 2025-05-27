@@ -15,6 +15,7 @@ OutputBaseFilename=CoolingControlSetup
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin
+ArchitecturesInstallIn64BitMode=x64
 SetupIconFile=.\cooling_control.ico
 WizardStyle=modern
 
