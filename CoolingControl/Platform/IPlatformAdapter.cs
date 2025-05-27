@@ -12,6 +12,11 @@ public interface IPlatformAdapter : IDisposable
 
 {
     /// <summary>
+    /// Special value that signals that the control should be set to a default or unmanaged state.
+    /// </summary>
+    public const float DefaultControlValue = -9999f;
+
+    /// <summary>
     /// Retrieves the current values of the specified sensors.
     /// </summary>
     /// <param name="sensorIdentifiers">A set of sensor identifiers to query.</param>

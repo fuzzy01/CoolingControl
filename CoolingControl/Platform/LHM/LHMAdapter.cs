@@ -10,7 +10,7 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
 {
     private readonly Computer _computer;
 
-    public LHMAdapter(ConfigHelper config) 
+    public LHMAdapter(ConfigHelper config)
     {
         _computer = new Computer
         {
@@ -62,7 +62,7 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
 
     public Dictionary<string, bool> ReleaseControls(HashSet<string> controlIdentifiers)
     {
-        Dictionary<string, float> controlValues = controlIdentifiers.ToDictionary(f => f, f => ControlSetterVisitor.DefaultControlValue);
+        Dictionary<string, float> controlValues = controlIdentifiers.ToDictionary(f => f, f => IPlatformAdapter.DefaultControlValue);
         var controlSetterVisitor = new ControlSetterVisitor(controlValues);
         _computer.Accept(controlSetterVisitor);
         return controlSetterVisitor.SetControls;

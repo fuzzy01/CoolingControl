@@ -8,7 +8,6 @@ using Serilog;
 /// </summary>
 public class ControlSetterVisitor : IVisitor
 {
-    public const float DefaultControlValue = -1f;
     private readonly Dictionary<string, float> _controlValues;
     private readonly Dictionary<string, bool> _setControls;
 
@@ -46,9 +45,9 @@ public class ControlSetterVisitor : IVisitor
                 try
                 {
                     // Set the control value
-                    if (controlValue == DefaultControlValue)
+                    if (controlValue == IPlatformAdapter.DefaultControlValue)
                     {
-                        // relase the control 
+                        // release the control 
                         sensor.Control.SetDefault();
                         _setControls[identifier] = true;
                         Log.Debug("Set control {Identifier} to default", sensor.Identifier);

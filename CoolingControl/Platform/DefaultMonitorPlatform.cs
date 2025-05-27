@@ -120,7 +120,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
             if (isCurrentlyRunning)
             {
-                // If running, ensure speed is above min stop or set to 0
+                // If running, ensure speed is above min stop
                 if (controlValue > 0 && controlValue < controlConfig.MinStop)
                 {
                     adjustedControlValue = controlConfig.MinStop;
@@ -141,8 +141,15 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
             if (force || adjustedControlValue != _previousControlValues[alias])
             {
                 // Update control state
-                _controlStates[alias] = adjustedControlValue > 0;
+                _controlStates[alias] = adjustedControlValue != 0f;
                 _previousControlValues[alias] = adjustedControlValue;
+
+                // If the control value is 0 and ZeroRPMSupport is enabled, set it to the default control value
+                if (adjustedControlValue == 0 && controlConfig.ZeroRPM)
+                {
+                    adjustedControlValue = IPlatformAdapter.DefaultControlValue;
+                    Log.Debug("Setting {Alias} to default control value due to ZeroRPM", alias);
+                }
 
                 adjustedControlValues[controlConfig.Identifier.ToString()] = adjustedControlValue;
             }
