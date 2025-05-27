@@ -4,13 +4,13 @@
 
 local cf = require("config/cooling_functions")
 
--- Fan configuration (example, adjust as needed)
-local cpu_fan_curve = { { sensor_value = 70, control_value = 30 }, { sensor_value = 90, control_value = 70 } } 
-local case_gpu_fan_curve =  { { sensor_value = 80, control_value = 40 }, { sensor_value = 90, control_value = 80 } } 
-
 function on_resume()
     cf.on_resume()
 end
+
+-- Fan configuration (example, adjust as needed)
+local cpu_fan_curve = { { sensor_value = 70, control_value = 30 }, { sensor_value = 90, control_value = 70 } } 
+local case_gpu_fan_curve =  { { sensor_value = 80, control_value = 40 }, { sensor_value = 90, control_value = 80 } } 
 
 function calculate_controls(sensors)
     local result = {}
