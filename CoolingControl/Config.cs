@@ -35,6 +35,7 @@ public class ControlConfig
     public float StepDown { get; set; } = 8.0f;
     public float MinStop { get; set; } = 20.0f;
     public float MinStart { get; set; } = 20.0f;
+    public bool ZeroRPM { get; set; } = false;
     public string RPMSensor { get; set; } = string.Empty;
     public List<RPMCalibrationData> RPMCalibration { get; set; } = new List<RPMCalibrationData>();
 }
