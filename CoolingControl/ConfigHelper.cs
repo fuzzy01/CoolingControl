@@ -69,12 +69,12 @@ public class ConfigHelper
         if (rpm < rpmCalibration[0].Rpm)
         {
             value = rpmCalibration[0].Control;
-            Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
+            Log.Debug("{Alias} {Rpm}RPM => {Value}", alias, rpm, value);
         }
         else if (rpm > rpmCalibration[^1].Rpm)
         {
             value = rpmCalibration[^1].Control;
-            Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
+            Log.Debug("{Alias} {Rpm}RPM => {Value}", alias, rpm, value);
         }
         else
         {
@@ -91,12 +91,12 @@ public class ConfigHelper
                     if (rpmDelta == 0)
                     {
                         value = lower.Control;
-                        Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
+                        Log.Debug("{Alias} {Rpm}RPM => {Value}", alias, rpm, value);
                         break;
                     }
 
                     value = lower.Control + (upper.Control - lower.Control) * ((rpm - lower.Rpm) / rpmDelta);
-                    Log.Debug("{Alias} {Rpm}RPM=>{Value}", alias, rpm, value);
+                    Log.Debug("{Alias} {Rpm}RPM => {Value}", alias, rpm, value);
                     break;
                 }
             }
