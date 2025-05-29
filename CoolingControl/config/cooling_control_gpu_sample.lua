@@ -10,7 +10,7 @@ end
 
 
 --- GPU fan curve based on GPU temperature, adjust as needed
--- This curve is for an MSI RTX 4070 Super Ventus 2X OC, it allow to turn off the fan until 62C.
+-- This curve is for an MSI RTX 4070 Super Ventus 2X OC, it allows to turn off the fan until 61C.
 local gpu_fan_curve = { { sensor_value = 61, control_value = 0 }, { sensor_value = 62, control_value = 30 }, { sensor_value = 83, control_value = 60 } }
 
 function calculate_controls(sensors)
