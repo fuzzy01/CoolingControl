@@ -1,51 +1,66 @@
 {
-    "ScriptPath": "config/cooling_control.lua",
-    "UpdateIntervalMs": 1000,
-    "LogLevel": "Information",
-    "LHMConfig": {
-      "CpuEnabled": true,
-      "GpuEnabled": true,
-      "MotherboardEnabled": true,
-      "MemoryEnabled": false,
-      "StorageEnabled": false,
-      "NetworkEnabled": false,
-      "ControllerEnabled": false,
-      "BatteryEnabled": false,
-      "PsuEnabled": false
+  "ScriptPath": "config/cooling_control.lua",
+  "UpdateIntervalMs": 1000,
+  "LogLevel": "Information",
+  "LHMConfig": {
+    "CpuEnabled": true,
+    "GpuEnabled": true,
+    "MotherboardEnabled": true,
+    "MemoryEnabled": false,
+    "StorageEnabled": false,
+    "NetworkEnabled": false,
+    "ControllerEnabled": false,
+    "BatteryEnabled": false,
+    "PsuEnabled": false
+  },
+  "Controls": [
+    {
+      "Identifier": "/lpc/nct6798d/0/control/1",
+      "Alias": "AIO Fan",
+      "RPMSensor": "/lpc/nct6798d/0/fan/1"
     },
-    "Controls": [
-      {
-        "Alias": "AIO Fan",
-        "Identifier": "/lpc/nct6798d/0/control/1",
-        "RPMSensor": "/lpc/nct6798d/0/fan/1"
-      },
-      {
-        "Alias": "AIO Pump",
-        "Identifier": "/lpc/nct6798d/0/control/5",
-        "RPMSensor": "/lpc/nct6798d/0/fan/5"
-      },
-      {
-        "Alias": "Case Fan",
-        "Identifier": "/lpc/nct6798d/0/control/0",
-        "RPMSensor": "/lpc/nct6798d/0/fan/0"
-      }
-    ],
-    "Sensors": [
-      {
-        "Alias": "CPU Package",
-        "Identifier": "/intelcpu/0/temperature/22"
-      },
-      {
-        "Alias": "CPU Power",
-        "Identifier": "/intelcpu/0/power/0"
-      },
-      {
-        "Alias": "GPU Core",
-        "Identifier": "/gpu-nvidia/0/temperature/0"
-      },
-      {
-        "Alias": "GPU Package",
-        "Identifier": "/gpu-nvidia/0/power/0"
-      }
-    ]
-  }
+    {
+      "Identifier": "/lpc/nct6798d/0/control/5",
+      "Alias": "AIO Pump",
+      "RPMSensor": "/lpc/nct6798d/0/fan/5"
+    },
+    {
+      "Identifier": "/lpc/nct6798d/0/control/0",
+      "Alias": "Case Fan",
+      "RPMSensor": "/lpc/nct6798d/0/fan/0"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/control/1",
+      "Alias": "GPU Fan",
+      "MinStop": 30,
+      "MinStart": 30,
+      "ZeroRPM": true
+    }
+  ],
+  "Sensors": [
+    {
+      "Identifier": "/intelcpu/0/temperature/22",
+      "Alias": "CPU Package"
+    },
+    {
+      "Identifier": "/intelcpu/0/power/0",
+      "Alias": "CPU Power"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/temperature/0",
+      "Alias": "GPU Core"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/temperature/2",
+      "Alias": "GPU Hot Spot"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/power/0",
+      "Alias": "GPU Power"
+    },
+    {
+      "Identifier": "/lpc/nct6798d/0/temperature/8",
+      "Alias": "T Sensor"
+    }
+  ]
+}
