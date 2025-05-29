@@ -80,11 +80,11 @@ function M.apply_hysteresis(control_alias, control_value, sensor_value, min_valu
         return control_value
     end
 
-    if min_value and sensor_value <= min_value then
+    if sensor_value <= min_value then
         -- log_debug(string.format("<=%f control_alias: %s, sensor_value: %f, last_sensor_value: %f", min_value, control_alias, sensor_value, M.last_trigger_sensor_values[control_alias]))
         return handle_new_control()
     end
-    if max_value and sensor_value >= max_value then
+    if sensor_value >= max_value then
         -- log_debug(string.format(">=%f control_alias: %s, sensor_value: %f, last_sensor_value: %f",  max_value, control_alias, sensor_value, M.last_trigger_sensor_values[control_alias]))
         return handle_new_control()    
     end
@@ -157,46 +157,138 @@ function M.apply_linear_curve(sensor_value, curve)
     error("Curve is not sorted by sensor_value")
 end
 
-
---- Controls the pump and fan speeds based on the CPU power consumption.
---- 
---- This function calculates the appropriate pump and fan speeds to maintain
---- optimal cooling performance based on the current CPU power consumption.
---- It uses linear interpolation between the minimum and maximum RPM values
---- for both the pump and fan when the CPU power is between the idle and
---- maximum power thresholds.
+--- Controls AIO pump speed based on the CPU power consumption.
 ---
+--- It uses linear interpolation between the minimum and maximum RPM values
+--- for the pump when the CPU power is between the idle and
+--- maximum power thresholds. Limits for pump speed should be set
+--- according to noise preferences and AIO size.
+---
+--- @param cpu_temp number: The current CPU temperature in °C.
 --- @param cpu_power number: The current CPU power consumption.
 --- @param idle_cpu_power number: The CPU power consumption at idle state.
 --- @param max_cpu_power number: The maximum CPU power consumption.
 --- @param min_pump_rpm number: The minimum pump speed in RPM.
 --- @param max_pump_rpm number: The maximum pump speed in RPM.
---- @param min_fan_rpm number: The minimum fan speed in RPM.
---- @param max_fan_rpm number: The maximum fan speed in RPM.
---- @return table result A table containing the calculated pump and fan speeds:
----   - pump_rpm (number): The calculated pump speed in RPM.
----   - fan_rpm (number): The calculated fan speed in RPM.
-function M.aio_control(cpu_power, idle_cpu_power, max_cpu_power, min_pump_rpm, max_pump_rpm, min_fan_rpm, max_fan_rpm)
-    local result = {}
+--- @return number: The calculated pump speed in RPM.
+function M.aio_pump_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_pump_rpm, max_pump_rpm)
 
-    local pump_speed
-    local fan_speed
+    -- Safety override: If CPU temperature is too high, set max pump speed
+    if cpu_temp > 95 then
+        return max_pump_rpm
+    end
+
+    local pump_rpm
   
     if cpu_power <= idle_cpu_power then
-        pump_speed = min_pump_rpm
-        fan_speed = min_fan_rpm
+        pump_rpm = min_pump_rpm
     elseif cpu_power >= max_cpu_power then
-        pump_speed = max_pump_rpm
-        fan_speed = max_fan_rpm
+        pump_rpm = max_pump_rpm
     else
-        pump_speed = min_pump_rpm + (max_pump_rpm - min_pump_rpm) * (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power) 
-        fan_speed = min_fan_rpm + (max_fan_rpm - min_fan_rpm) * (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power) 
+        local ratio = (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power)
+        pump_rpm = min_pump_rpm + (max_pump_rpm - min_pump_rpm) * ratio
     end  
 
-    return {
-        pump_rpm = pump_speed,
-        fan_rpm = fan_speed
-    }
+    pump_rpm = math.max(min_pump_rpm, math.min(max_pump_rpm, pump_rpm))
+
+    return pump_rpm
+end
+
+-- Global variables for PID control
+M.integral = {}
+
+--- Controls AIO fan speed based on the coolant temperature.
+---
+--- Calculates and returns a fan speed (RPM) based on the difference
+--- between the current coolant temperature and a target temperature.
+---
+--- @param coolant_alias string: Identifier for the coolant sensor
+--- @param coolant_temp number: Current coolant temperature
+--- @param target_temp number: Desired coolant temperature setpoint
+--- @param min_fan_rpm number: The minimum fan speed in RPM.
+--- @param max_fan_rpm number: The maximum fan speed in RPM.
+--- @param dt number?: Time step in seconds (optional, defaults to 1)
+--- @return number: The calculated fan speed in RPM.
+function M.aio_fan_pid_control(coolant_alias, coolant_temp, target_temp, min_fan_rpm, max_fan_rpm, dt)
+    dt = dt or 1
+    
+    local Kp, Ki = 120, 15
+
+    local error = coolant_temp - target_temp
+
+    local integral = M.integral[coolant_alias] or -20
+    integral = integral + error * dt
+
+    -- Clamp integral to prevent windup
+    local max_integral = (max_fan_rpm - min_fan_rpm) / (Ki * 2)
+    if integral > max_integral then
+        integral = max_integral
+    elseif integral < -max_integral then
+        integral = -max_integral
+    end
+
+    local fan_rpm = (max_fan_rpm + min_fan_rpm) / 2 + Kp * error + Ki * integral
+
+    M.integral[coolant_alias] = integral
+
+    log_debug(string.format("Temp: %.1f, Error: %.1f, Integral: %.1f, Fan: %.1f", coolant_temp, error, integral, fan_rpm))
+
+    return math.min(max_fan_rpm, math.max(min_fan_rpm, fan_rpm))
+end
+
+--- Controls fan speed based on the CPU power consumption.
+---
+--- It uses linear interpolation between the minimum and maximum RPM values
+--- for the fan when the CPU power is between the idle and
+--- maximum power thresholds. Limits for fan speed should be set
+--- according to noise preferences and AIO size.
+---
+--- @param cpu_temp number: The current CPU temperature in °C.
+--- @param cpu_power number: The current CPU power consumption.
+--- @param idle_cpu_power number: The CPU power consumption at idle state.
+--- @param max_cpu_power number: The maximum CPU power consumption.
+--- @param min_fan_rpm number: The minimum fan speed in RPM.
+--- @param max_fan_rpm number: The maximum fan speed in RPM.
+--- @param ambient_temp number|nil: The ambient temperature in °C. Defaults to 24°C if not provided.
+--- @return number: The calculated fan speed in RPM.
+function M.aio_fan_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_fan_rpm, max_fan_rpm, ambient_temp)
+    ambient_temp = ambient_temp or 24 -- Default ambient temperature if not provided
+
+    -- Safety override: If CPU temperature is too high, set max fan speed
+    if cpu_temp > 95 then
+        return max_fan_rpm
+    end
+
+    -- Temperature-based adjustment
+    local temp_modifier = 1.0
+    if cpu_temp >= 80 then
+        temp_modifier = temp_modifier * 1.1  -- Increase by 10% if temp >= 80°C
+    elseif cpu_temp <= 50 then
+        temp_modifier = temp_modifier * 0.9  -- Decrease by 10% if temp <= 50°C
+    end
+
+    -- Ambient temperature adjustment
+    local ambient_modifier = 1.0
+    if ambient_temp > 24 then
+        ambient_modifier = 1 + (ambient_temp - 24) * 0.02 -- Increase by 2% per °C above 24°C
+    elseif ambient_temp < 24 then
+        ambient_modifier = 1 - (24 - ambient_temp) * 0.01 -- Decrease by 1% per °C below 24°C
+    end
+   
+    local fan_rpm
+  
+    if cpu_power <= idle_cpu_power then
+        fan_rpm = min_fan_rpm
+    elseif cpu_power >= max_cpu_power then
+        fan_rpm = max_fan_rpm
+    else
+        local ratio = (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power)
+        fan_rpm = min_fan_rpm + (max_fan_rpm - min_fan_rpm) * ratio
+    end  
+
+    local final_fan_rpm = math.max(min_fan_rpm, math.min(max_fan_rpm, fan_rpm * temp_modifier * ambient_modifier))
+
+    return final_fan_rpm
 end
 
 --- Resets the state variables used for cooling control.
