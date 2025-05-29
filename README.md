@@ -10,10 +10,11 @@
   - **RPM-Based fan/pump control**: Set fan/pumps speeds in RPM (e.g., 1000 RPM) instead of percentages, with calibration data mapping RPM to hardware-compatible percentages.
   - **Fan/Pump calibration**: Fan/pump parameters (min start, min stop, RPM curve) are autocalibrated and permanently stored in config file.
 - **Control logic features**: Users can write their own control logic in Lua, with a library of common algorithms included.
-  - **Sensor-based control**: Uses any system sensor (e.g., CPU/GPU temperatures, power) for fan/pump control.
+  - **Sensor-based control**: Uses any system sensor (e.g., CPU/GPU temperatures, CPU/GPU power, coolant temperature) for fan/pump control.
   - **Ramp up/Ramp down control**: Smoothly ramps up/down fan speeds to prevent sudden changes.
   - **Exponential Moving Average**: Smooths sensor data, filters out spikes.
   - **Hysteresis**: Prevents rapid fan/pump speed changes, ensuring stability.
+  - **PID control**: PID control for AIO fan speed based on coolant temperature.
   - **Global State**: Maintains state across control updates.
 - **Service Management**: Runs as a Windows service or in console mode.
 - **Windows power event support**: Power events (suspend/resume) are handled by the application, and control Lua script is also notified.
@@ -72,60 +73,71 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
 
 ```json
 {
-    "ScriptPath": "config/cooling_control.lua",
-    "UpdateIntervalMs": 1000,
-    "LogLevel": "Information",
-    "LHMConfig": {
-      "CpuEnabled": true,
-      "GpuEnabled": true,
-      "MotherboardEnabled": true,
-      "MemoryEnabled": false,
-      "StorageEnabled": false,
-      "NetworkEnabled": false,
-      "ControllerEnabled": false,
-      "BatteryEnabled": false,
-      "PsuEnabled": false
+  "ScriptPath": "config/cooling_control.lua",
+  "UpdateIntervalMs": 1000,
+  "LogLevel": "Information",
+  "LHMConfig": {
+    "CpuEnabled": true,
+    "GpuEnabled": true,
+    "MotherboardEnabled": true,
+    "MemoryEnabled": false,
+    "StorageEnabled": false,
+    "NetworkEnabled": false,
+    "ControllerEnabled": false,
+    "BatteryEnabled": false,
+    "PsuEnabled": false
+  },
+  "Controls": [
+    {
+      "Identifier": "/lpc/nct6798d/0/control/1",
+      "Alias": "AIO Fan",
+      "RPMSensor": "/lpc/nct6798d/0/fan/1"
     },
-    "Controls": [
-      {
-        "Alias": "AIO Fan",
-        "Identifier": "/lpc/nct6798d/0/control/1",
-        "RPMSensor": "/lpc/nct6798d/0/fan/1"
-      },
-      {
-        "Alias": "AIO Pump",
-        "Identifier": "/lpc/nct6798d/0/control/5",
-        "RPMSensor": "/lpc/nct6798d/0/fan/5"
-      },
-      {
-        "Alias": "Case Fan",
-        "Identifier": "/lpc/nct6798d/0/control/0",
-        "RPMSensor": "/lpc/nct6798d/0/fan/0"
-      }
-    ],
-    "Sensors": [
-      {
-        "Identifier": "/intelcpu/0/temperature/22",
-        "Alias": "CPU Package"
-      },
-      {
-        "Identifier": "/intelcpu/0/power/0",
-        "Alias": "CPU Power"
-      },
-      {
-        "Identifier": "/gpu-nvidia/0/temperature/0",
-        "Alias": "GPU Core"
-      },
-      {
-        "Identifier": "/gpu-nvidia/0/temperature/2",
-        "Alias": "GPU Hot Spot"
-      },
-      {
-        "Identifier": "/gpu-nvidia/0/power/0",
-        "Alias": "GPU Power"
-      }
-    ]
-  }
+    {
+      "Identifier": "/lpc/nct6798d/0/control/5",
+      "Alias": "AIO Pump",
+      "RPMSensor": "/lpc/nct6798d/0/fan/5"
+    },
+    {
+      "Identifier": "/lpc/nct6798d/0/control/0",
+      "Alias": "Case Fan",
+      "RPMSensor": "/lpc/nct6798d/0/fan/0"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/control/1",
+      "Alias": "GPU Fan",
+      "MinStop": 30,
+      "MinStart": 30,
+      "ZeroRPM": true
+    }
+  ],
+  "Sensors": [
+    {
+      "Identifier": "/intelcpu/0/temperature/22",
+      "Alias": "CPU Package"
+    },
+    {
+      "Identifier": "/intelcpu/0/power/0",
+      "Alias": "CPU Power"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/temperature/0",
+      "Alias": "GPU Core"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/temperature/2",
+      "Alias": "GPU Hot Spot"
+    },
+    {
+      "Identifier": "/gpu-nvidia/0/power/0",
+      "Alias": "GPU Power"
+    },
+    {
+      "Identifier": "/lpc/nct6798d/0/temperature/8",
+      "Alias": "T Sensor"
+    }
+  ]
+}
 ```
 
 - Description of the fields:
@@ -137,73 +149,84 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `Sensors`: List of sensors with their aliases and identifiers.
   - `Alias`: A user-friendly name for the sensor (e.g., "CPU Package").
   - `Identifier`: The hardware ID of the sensor (e.g., "/intelcpu/0/temperature/22").
-  - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
   - `StepDown`: Maximum step down in % per update interval (default: 8%).
+  - `ZeroRPM`: If true, when the control is set to 0 RPM the control is handed back to the hardware, it is needed to support GPU fans (default: false).
+  - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
 
 4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
 5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.kua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
 
-**Example for AIO**:
+**Example for AIO without coolant temperature sensor**:
 
 ```lua
--- Control script for AIO cooling system
-
 local cf = require("config/cooling_functions")
-
--- Fan configuration (example, adjust as needed)
-local case_gpu_fan_curve =  { { sensor_value = 80, control_value = 600 }, { sensor_value = 90, control_value = 1200 } } 
 
 function on_resume()
     cf.on_resume()
 end
 
+-- AIO fan and pump RPM limits (not absolute limits), adjust as needed based on your AIO and how silent you want it to be
+local min_aio_pump_rpm = 1700
+local max_aio_pump_rpm = 2800
+local min_aio_fan_rpm = 600
+local max_aio_fan_rpm = 1800
+
+-- Idle / browsing CPU power, adjust based on your system
+local idle_cpu_power = 50
+-- Max CPU power where we want max cooling, adjust based on your CPU
+local max_cpu_power = 253
+
+-- Idle / browsing GPU power, adjust based on your system
+local idle_gpu_power = 40
+-- Max GPU power, adjust based on your GPU
+local max_gpu_power = 220
+
+-- Case fan limits
+local min_case_fan_rpm = 600
+local max_case_fan_rpm = 1000
+
+-- Case fan curve based on gpu power (example, adjust as needed)
+local case_gpu_fan_curve =  { { sensor_value = idle_gpu_power, control_value = min_case_fan_rpm }, { sensor_value = max_gpu_power, control_value = max_case_fan_rpm } } 
+
 function calculate_controls(sensors)
     local result = {}
 
-    local cpu_power = sensors["CPU Power"] or 50
-    
-    -- Apply moving avarage
+    local cpu_power = sensors["CPU Power"] or idle_cpu_power
+    local cpu_temp = sensors["CPU Package"] or 50
+
+    -- Apply moving average
     cpu_power = cf.apply_ema("CPU Power", cpu_power)
-    -- log_debug(string.format("EMA CPU Power %f",  cpu_power))
+    cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
+   
+    -- Calc AIO control
+    local aio_pump_rpm = cf.aio_pump_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_aio_pump_rpm, max_aio_pump_rpm)
+    local aio_fan_rpm = cf.aio_fan_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_aio_fan_rpm, max_aio_fan_rpm)
     
-    -- Calc AIO control, silent profile: max fan rpm 1700, max pump rpm 2800
-    local aio_res = cf.aio_control(cpu_power, 50, 253, 1700, 2800, 680, 1500)
-    -- local aio_res = cf.aio_control(cpu_power, 50, 300, 1700, 3342, 680, 2000)
-    local aio_pump_rpm = aio_res.pump_rpm
-    local aio_fan_rpm = aio_res.fan_rpm
-    -- log_debug(string.format("AIO Pump RPM %f AIO Fan RPM %f",  aio_pump_rpm, aio_fan_rpm))
-    
-    -- Apply hysteresis
-    aio_pump_rpm = cf.apply_hysteresis("AIO Pump", aio_pump_rpm, cpu_power, 50, 253, 5, 20)
-    aio_fan_rpm = cf.apply_hysteresis("AIO Fan", aio_fan_rpm, cpu_power, 50, 253, 5, 20)
-    -- log_debug(string.format("Post Hyst AIO Pump RPM %f AIO Fan RPM %f",  aio_pump_rpm, aio_fan_rpm))
+    -- Apply hysteresis based on CPU power
+    aio_pump_rpm = cf.apply_hysteresis("AIO Pump", aio_pump_rpm, cpu_power, idle_cpu_power, max_cpu_power, 5, 15)
+    aio_fan_rpm = cf.apply_hysteresis("AIO Fan", aio_fan_rpm, cpu_power, idle_cpu_power, max_cpu_power, 5, 15)
 
     table.insert(result, { alias = "AIO Pump", rpm = aio_pump_rpm })
     table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })  
     
-    -- Case fan: Based on GPU temperature
-    local gpu_temp = sensors["GPU Core"] or 50
+    -- Case fan: Based on GPU power mixed with AIO fan
+    local gpu_power = sensors["GPU Power"] or idle_gpu_power
 
-    -- Apply moving avarage
-    gpu_temp = cf.apply_ema("GPU Core", gpu_temp)
+    -- Apply moving average
+    gpu_power = cf.apply_ema("GPU Power", gpu_power)
 
     -- Apply fan curve
-    local case_fan_rpm = cf.apply_linear_curve(gpu_temp, case_gpu_fan_curve)
-    -- log_debug(string.format("Case Fan RPM: %f", case_fan_rpm))
+    local case_fan_rpm = cf.apply_linear_curve(gpu_power, case_gpu_fan_curve)
 
-    -- Apply hysteresis
-    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_temp, 50, 100, 4, 2)
-    -- log_debug(string.format("Post Hyst Case Fan RPM: %f", case_fan_rpm))
+    -- Apply hysteresis based on GPU power
+    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_power, idle_gpu_power, max_gpu_power, 5, 15)
 
-    -- Mix with AIO fan 
-    case_fan_rpm = math.max(aio_fan_rpm * 0.8, case_fan_rpm)
-    -- Limit to 1200 RPM
-    case_fan_rpm = math.min(case_fan_rpm, 1200)
-    -- log_debug(string.format("Mixed Case Fan RPM: %f", case_fan_rpm))
-    
+    -- Mix with AIO fan
+    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * 0.6, case_fan_rpm))
+
     table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
-
+  
     return result
 end
 ```
@@ -217,7 +240,9 @@ end
   - `cf.apply_ema()`: A function that applies exponential moving average to smooth out sensor readings.
   - `cf.apply_linear_curve()`: A function that applies a linear curve to map sensor values to fan/pump speeds based on the defined curve.
   - `cf.apply_hysteresis()`: A function that applies hysteresis logic to prevent rapid changes in fan/pump speeds based on sensor fluctuations.
-  - `cf.aio_control()`: A function that calculates the fan and pump speeds based on the CPU power and other parameters. Limits for pump and fan speeds should be set according to noise preferences and AIO size.
+  - `cf.aio_pump_control()`: A function that calculates the pump speed based on the CPU power and other parameters. Limits for pump speeds should be set according to noise preferences and AIO size.
+  - `cf.aio_fan_control()`: A function that calculates the fan speed based on the CPU power and other parameters. Limits for fan speeds should be set according to noise preferences and AIO size.
+  - `cf.aio_fan_pid_control()`: A function that calculates the fan speed based on the coolant temperature, using PID control. Limits for fan speeds should be set according to noise preferences and AIO size.
   - `cf.log_debug()`: A function that logs debug messages to the log file. You can use this to log any information you need for debugging purposes.
   - `cf.log_info()`: A function that logs information messages to the log file. You can use this to log any information you need for debugging purposes.
   - `cf.log_error()`: A function that logs error messages to the log file. You can use this to log any information you need for debugging purposes.
