@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using System.Diagnostics;
-using System.Text.Json;
 
 /// <summary>
 /// The main entry point for the application.
@@ -15,7 +14,7 @@ class Program
     static void Main(string[] args)
     {
         string? cmd = args.Length >= 1 ? args[0] : null;
-        
+
         // Check for --help or -h
         if (cmd == "help" || cmd == "-h")
         {
@@ -31,13 +30,11 @@ class Program
             .WriteTo.File("logs/cooling_control.log", rollingInterval: RollingInterval.Day)
             .CreateLogger();
 
-         // Read configuration from config.json
-        Config config;
+        // Read configuration from config.json
+        ConfigHelper config;
         try
         {
-            config = JsonSerializer.Deserialize<Config>(File.ReadAllText("config/config.json"))
-                     ?? throw new InvalidOperationException("Deserialized configuration is null.");
-            Log.Information("Configuration loaded successfully from config.json");
+            config = new ConfigHelper("config/config.json");
         }
         catch (Exception ex)
         {
@@ -48,8 +45,8 @@ class Program
         // Reinitialize Serilog
         Log.CloseAndFlush();
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Is(Enum.Parse<Serilog.Events.LogEventLevel>(config.LogLevel))
-            .Enrich.FromLogContext()        
+            .MinimumLevel.Is(Enum.Parse<Serilog.Events.LogEventLevel>(config.Config.LogLevel))
+            .Enrich.FromLogContext()
             .WriteTo.Console()
             .WriteTo.File("logs/cooling_control.log", rollingInterval: RollingInterval.Day)
             .CreateLogger();
@@ -85,6 +82,9 @@ class Program
             return;
         }
 
+        // Startup delay
+        Task.Delay(4000).Wait(); // Wait for 4 seconds to allow the system to stabilize
+
         // Service handling
         try
         {
@@ -97,7 +97,7 @@ class Program
         }
     }
 
-    private static IHostBuilder CoolingControlDaemonBuilder(string[] args, Config config) =>
+    private static IHostBuilder CoolingControlDaemonBuilder(string[] args, ConfigHelper config) =>
         Host.CreateDefaultBuilder(args)
             .UseSerilog()
             .UseWindowsService(options =>
@@ -111,7 +111,7 @@ class Program
             });
 
 
-    private static IHostBuilder ControlCalibratorBuilder(string[] args, Config config, string control_alias) =>
+    private static IHostBuilder ControlCalibratorBuilder(string[] args, ConfigHelper config, string control_alias) =>
         Host.CreateDefaultBuilder(args)
             .UseSerilog()
             .ConfigureServices((hostContext, services) =>
@@ -124,7 +124,7 @@ class Program
     private static void PrintHelp()
     {
         string version = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion ?? "unknown";
-  
+
         Console.WriteLine($"CoolingControl v{version}");
         Console.WriteLine($"Runtime Version: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
         Console.WriteLine("Usage:");
