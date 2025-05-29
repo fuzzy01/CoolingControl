@@ -8,6 +8,9 @@ function on_resume()
     cf.on_resume()
 end
 
+-- AIO coolant target temperature, adjust as needed
+local aio_coolant_target_temp = 40
+
 -- AIO fan and pump RPM limits (not absolute limits), adjust as needed based on your AIO and how silent you want it to be
 local min_aio_pump_rpm = 1700
 local max_aio_pump_rpm = 2800
@@ -36,22 +39,22 @@ function calculate_controls(sensors)
 
     local cpu_power = sensors["CPU Power"] or idle_cpu_power
     local cpu_temp = sensors["CPU Package"] or 50
+    local coolant_temp = sensors["T Sensor"] or 40
 
     -- Apply moving average
     cpu_power = cf.apply_ema("CPU Power", cpu_power)
     cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
-   
+
     -- Calc AIO control
     local aio_pump_rpm = cf.aio_pump_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_aio_pump_rpm, max_aio_pump_rpm)
-    local aio_fan_rpm = cf.aio_fan_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_aio_fan_rpm, max_aio_fan_rpm)
+    local aio_fan_rpm = cf.aio_fan_pid_control("T Sensor", coolant_temp, 40, min_aio_fan_rpm, max_aio_fan_rpm)  
     
-    -- Apply hysteresis based on CPU power
+    -- Apply hysteresis based on CPU power only for pump
     aio_pump_rpm = cf.apply_hysteresis("AIO Pump", aio_pump_rpm, cpu_power, idle_cpu_power, max_cpu_power, 5, 15)
-    aio_fan_rpm = cf.apply_hysteresis("AIO Fan", aio_fan_rpm, cpu_power, idle_cpu_power, max_cpu_power, 5, 15)
 
     table.insert(result, { alias = "AIO Pump", rpm = aio_pump_rpm })
-    table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })  
-    
+    table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })
+
     -- Case fan: Based on GPU power mixed with AIO fan
     local gpu_power = sensors["GPU Power"] or idle_gpu_power
 
@@ -66,7 +69,7 @@ function calculate_controls(sensors)
 
     -- Mix with AIO fan
     case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * 0.6, case_fan_rpm))
-
+    
     table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
   
     return result

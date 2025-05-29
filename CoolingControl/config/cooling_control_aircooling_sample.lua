@@ -8,9 +8,17 @@ function on_resume()
     cf.on_resume()
 end
 
+-- CPU fan limits (not absolute limits), adjust as needed based on your system and how silent you want it to be
+local min_cpu_fan_speed = 30
+local max_cpu_fan_speed = 70
+
+-- Case fan limits
+local min_case_fan_speed = 40
+local max_case_fan_speed = 60
+
 -- Fan configuration (example, adjust as needed)
-local cpu_fan_curve = { { sensor_value = 70, control_value = 30 }, { sensor_value = 90, control_value = 70 } } 
-local case_gpu_fan_curve =  { { sensor_value = 80, control_value = 40 }, { sensor_value = 90, control_value = 80 } } 
+local cpu_fan_curve = { { sensor_value = 70, control_value = min_cpu_fan_speed }, { sensor_value = 90, control_value = max_cpu_fan_speed } } 
+local case_gpu_fan_curve =  { { sensor_value = 80, control_value = min_case_fan_speed }, { sensor_value = 90, control_value = max_case_fan_speed } } 
 
 function calculate_controls(sensors)
     local result = {}
@@ -23,11 +31,9 @@ function calculate_controls(sensors)
 
     -- Apply fan curve
     local cpu_fan_speed = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
-    -- log_debug(string.format("CPU Fan Speed: %f", cpu_fan_speed))
 
     -- Apply hysteresis
     cpu_fan_speed = cf.apply_hysteresis("CPU Fan", cpu_fan_speed, cpu_temp, 30, 100, 4, 2)
-    -- log_debug(string.format("Post Hyst CPU Fan Speed: %f", cpu_fan_speed))
     
     table.insert(result, { alias = "CPU Fan", value = cpu_fan_speed }) 
 
@@ -39,15 +45,12 @@ function calculate_controls(sensors)
     
     -- Apply fan curve
     local case_fan_speed = cf.apply_linear_curve(gpu_temp, case_gpu_fan_curve)
-    -- log_debug(string.format("Case Fan Speed: %f", case_fan_speed))
 
     -- Apply hysteresis
     case_fan_speed = cf.apply_hysteresis("Case Fan", case_fan_speed, gpu_temp, 30, 100, 4, 2)
-    -- log_debug(string.format("Post Hyst Case Fan Speed: %f", case_fan_speed))
 
     -- Mix with CPU fan 
-    case_fan_speed = math.max(cpu_fan_speed * 0.8, gpu_fan_speed)
-    -- log_debug(string.format("Mixed Case Fan Speed: %f", case_fan_speed))
+    case_fan_speed = math.min(max_case_fan_speed, math.max(cpu_fan_speed * 0.6, gpu_fan_speed))
     
     table.insert(result, { alias = "Case Fan", value = case_fan_speed })
 
