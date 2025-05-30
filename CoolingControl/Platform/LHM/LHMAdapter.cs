@@ -70,7 +70,20 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
 
     public void ListAllSensors()
     {
-        var visitor = new LoggingVisitor(Log.Logger);
+        var loggableSensorTypes = new HashSet<SensorType>
+        {
+            SensorType.Power,
+            SensorType.Temperature,
+            SensorType.Fan,
+            SensorType.Load,
+            SensorType.Control,
+            SensorType.Level,
+            SensorType.Frequency,
+            SensorType.Flow,
+            SensorType.Noise,
+            SensorType.Humidity
+        };
+        var visitor = new LoggingVisitor(Log.Logger, loggableSensorTypes);
         _computer.Accept(visitor);
     }
 

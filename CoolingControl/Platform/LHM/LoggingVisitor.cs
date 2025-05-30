@@ -10,11 +10,13 @@ using Serilog;
 public class LoggingVisitor : IVisitor
 {
     private readonly ILogger _logger;
+    private readonly HashSet<SensorType> _loggableSensorTypes;
     private int _indentLevel = 0;
 
-    public LoggingVisitor(ILogger logger)
+    public LoggingVisitor(ILogger logger, HashSet<SensorType> loggableSensorTypes)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _logger = logger;
+        _loggableSensorTypes = loggableSensorTypes;
     }
 
     private string GetIndent() => new string(' ', _indentLevel * 2);
@@ -60,19 +62,16 @@ public class LoggingVisitor : IVisitor
 
     public void VisitSensor(ISensor sensor)
     {
-        _logger.Information("{Indent}Sensor: {Name} (Type: {SensorType}, Identifier: {Identifier}, Value: {Value}, Max: {Max}, Min: {Min}, Unit: {Unit})",
-            GetIndent(), sensor.Name, sensor.SensorType, sensor.Identifier,
-            sensor.Value.HasValue ? sensor.Value.Value : "N/A",
-            sensor.Max.HasValue ? sensor.Max.Value : "N/A",
-            sensor.Min.HasValue ? sensor.Min.Value : "N/A",
-                GetSensorUnit(sensor.SensorType));
+        if (_loggableSensorTypes.Contains(sensor.SensorType))
+        {
+            _logger.Information("{Indent}Sensor: {Name} (Type: {SensorType}, Identifier: {Identifier}, Value: {Value}, Max: {Max}, Min: {Min}, Unit: {Unit})",
+                GetIndent(), sensor.Name, sensor.SensorType, sensor.Identifier,
+                sensor.Value.HasValue ? sensor.Value.Value : "N/A",
+                sensor.Max.HasValue ? sensor.Max.Value : "N/A",
+                sensor.Min.HasValue ? sensor.Min.Value : "N/A",
+                    GetSensorUnit(sensor.SensorType));
+        }
     }
-
-    // Visit parameters
-    // foreach (IParameter parameter in sensor.Parameters)
-    // {
-    //    parameter.Accept(this); 
-    // }
 
     public void VisitParameter(IParameter parameter)
     {
