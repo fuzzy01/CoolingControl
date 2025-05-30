@@ -6,6 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Serilog;
 
+/// <summary>
+/// Adapter for hardware monitoring using LibreHardwareMonitor.
+/// Manages the lifecycle of an underlying <see cref="Computer"/> instance
+/// to retrieve sensor values and control hardware components.
+/// </summary>
 public class LHMAdapter : IPlatformAdapter, IDisposable
 {
     private readonly Computer _computer;
@@ -26,7 +31,7 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
         };
         _computer.Open();
     }
-    
+
     public void Suspend()
     {
         Log.Debug("Suspending hardware monitoring");
@@ -37,7 +42,7 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
     {
         Log.Debug("Resuming hardware monitoring");
         _computer.Open();
-     }
+    }
 
     public Dictionary<string, float?> GetSensorValues(HashSet<string> sensorIdentifiers)
     {
