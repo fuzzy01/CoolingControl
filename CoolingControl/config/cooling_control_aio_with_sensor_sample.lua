@@ -34,6 +34,8 @@ local max_case_fan_rpm = 1000
 -- Case fan curve based on gpu power (example, adjust as needed)
 local case_gpu_fan_curve =  { { sensor_value = idle_gpu_power, control_value = min_case_fan_rpm }, { sensor_value = max_gpu_power, control_value = max_case_fan_rpm } } 
 
+local case_aio_fan_scale = max_case_fan_rpm / max_aio_fan_rpm
+
 function calculate_controls(sensors)
     local result = {}
 
@@ -68,7 +70,7 @@ function calculate_controls(sensors)
     case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_power, idle_gpu_power, max_gpu_power, 5, 15)
 
     -- Mix with AIO fan
-    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * 0.6, case_fan_rpm))
+    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * case_aio_fan_scale, case_fan_rpm))
     
     table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
   
