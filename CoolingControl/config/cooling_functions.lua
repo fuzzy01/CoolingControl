@@ -211,16 +211,22 @@ M.integral = {}
 --- @return number: The calculated fan speed in RPM.
 function M.aio_fan_pid_control(coolant_alias, coolant_temp, target_temp, min_fan_rpm, max_fan_rpm, dt)
     dt = dt or 1
-    
-    local Kp, Ki = 120, 15
+
+    local Kp, Ki = 90, 15
+    local max_integral = (max_fan_rpm - min_fan_rpm) / (Ki * 2)
+
+    -- Safety override: If coolant temperature is too high, set max fan speed
+    if coolant_temp > 60 then
+        M.integral[coolant_alias] = max_integral
+        return max_fan_rpm
+    end
 
     local error = coolant_temp - target_temp
 
-    local integral = M.integral[coolant_alias] or -20
+    local integral = M.integral[coolant_alias] or -max_integral
     integral = integral + error * dt
 
     -- Clamp integral to prevent windup
-    local max_integral = (max_fan_rpm - min_fan_rpm) / (Ki * 2)
     if integral > max_integral then
         integral = max_integral
     elseif integral < -max_integral then
