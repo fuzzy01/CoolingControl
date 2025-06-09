@@ -9,27 +9,31 @@ function on_resume()
 end
 
 -- AIO fan and pump RPM limits (not absolute limits), adjust as needed based on your AIO and how silent you want it to be
-local min_aio_pump_rpm = 1700
+-- Increasing pump speed reduces CPU temperature, but the effect diminishes at higher speeds
+-- High pump speeds may increase noise without proportional cooling benefits
+local min_aio_pump_rpm = 1600
 local max_aio_pump_rpm = 2800
 local min_aio_fan_rpm = 600
 local max_aio_fan_rpm = 1800
 
--- Idle / browsing CPU power, adjust based on your system
+-- Idle / browsing CPU power, adjust based on your CPU
 local idle_cpu_power = 50
--- Max CPU power where we want max cooling, adjust based on your CPU
-local max_cpu_power = 253
+-- CPU power where we want max cooling, adjust based on your CPU
+local max_cpu_power = 240
 
--- Idle / browsing GPU power, adjust based on your system
-local idle_gpu_power = 40
--- Max GPU power, adjust based on your GPU
-local max_gpu_power = 220
+-- Idle / browsing GPU board power %, adjust based on your GPU
+local idle_gpu_power = 20
+-- GPU board power % where we want max case cooling, adjust based on your GPU
+local max_gpu_power = 80
 
 -- Case fan limits
 local min_case_fan_rpm = 600
-local max_case_fan_rpm = 1000
+local max_case_fan_rpm = 900
 
 -- Case fan curve based on gpu power (example, adjust as needed)
 local case_gpu_fan_curve =  { { sensor_value = idle_gpu_power, control_value = min_case_fan_rpm }, { sensor_value = max_gpu_power, control_value = max_case_fan_rpm } } 
+
+local case_aio_fan_scale = max_case_fan_rpm / max_aio_fan_rpm
 
 function calculate_controls(sensors)
     local result = {}
@@ -52,21 +56,21 @@ function calculate_controls(sensors)
     table.insert(result, { alias = "AIO Pump", rpm = aio_pump_rpm })
     table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })  
     
-    -- Case fan: Based on GPU power mixed with AIO fan
-    local gpu_power = sensors["GPU Power"] or idle_gpu_power
+    -- Case fan: Based on GPU board power mixed with AIO fan
+    local gpu_power = sensors["GPU Board Power"] or idle_gpu_power
 
     -- Apply moving average
-    gpu_power = cf.apply_ema("GPU Power", gpu_power)
+    gpu_power = cf.apply_ema("GPU Board Power", gpu_power)
 
     -- Apply fan curve
     local case_fan_rpm = cf.apply_linear_curve(gpu_power, case_gpu_fan_curve)
 
     -- Apply hysteresis based on GPU power
-    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_power, idle_gpu_power, max_gpu_power, 5, 15)
+    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_power, idle_gpu_power, max_gpu_power, 5, 5)
 
     -- Mix with AIO fan
-    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * 0.6, case_fan_rpm))
-
+    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * case_aio_fan_scale, case_fan_rpm))
+    
     table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
   
     return result
