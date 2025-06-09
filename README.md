@@ -3,6 +3,7 @@
 ## Overview
 
 `CoolingControl` is an application for controlling fans and pumps based on any system sensors with flexible control logic customized for your PC build. Unlike traditional fan control software, `CoolingControl` offers unparalleled flexibility with Lua-based scripting, allowing users to define custom logic for any sensor, not just temperature. You can write your own control logic from scratch or use one of the examples. A Lua library with common algorithms is also included. The application runs as a Windows service or in console mode, leveraging Libre Hardware Monitor for hardware access.
+
 If you have an AIO cooler, it is preferred using the coolant temperature sensor for fan control. If your AIO does not have a coolant temperature sensor, it is recommended attaching a thermal sensor to the outgoing tube at the radiator and connecting it to a motherboard connector (most Asus motherboards has a connector labeled "T Sensor"). Some sensors that work and can be easily purchased: XSPC Wire Sensor 10k, Phobya 10k Temperature Sensor.
 
 
