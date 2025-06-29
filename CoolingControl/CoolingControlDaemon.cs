@@ -17,6 +17,7 @@ public class CoolingControlDaemon : BackgroundService
     private readonly ConfigHelper _config;
     private readonly IMonitoringPlatform _monitor;
     private readonly ControlScript _script;
+    private readonly CSVLogger _CSVLogger;
     private readonly int _intervalMs;
     // private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly BlockingCollection<PowerModes> _messageQueue;
@@ -27,6 +28,7 @@ public class CoolingControlDaemon : BackgroundService
         _config = config;
         _monitor = new DefaultMonitorPlatform(_config, new LHMAdapter(_config));
         _script = new ControlScript(_config);
+        _CSVLogger = new CSVLogger(_config);
         _intervalMs = _config.Config.UpdateIntervalMs;
         _messageQueue = new BlockingCollection<PowerModes>();
         SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
@@ -74,6 +76,12 @@ public class CoolingControlDaemon : BackgroundService
                         // Execute script to get control settings
                         var settings = _script.CalculateControls(sensorData);
 
+                        if (_config.Config.EnableCSVLogging)
+                        {
+                            // Log sensor data to CSV
+                            _CSVLogger.LogData(sensorData, settings);
+                        }
+
                         // Apply control settings
                         var res = _monitor.SetControls(settings);
                     }
@@ -85,7 +93,8 @@ public class CoolingControlDaemon : BackgroundService
                     if (errorCount >= 10)
                     {
                         Log.Error("Too many errors in control loop, stopping service");
-                        break;
+                        throw new InvalidOperationException("Too many errors in control loop, stopping service");
+                        // break;
                     }
                 }
 
