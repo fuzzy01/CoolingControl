@@ -8,6 +8,7 @@ public class Config
     public string ScriptPath { get; set; } = "cooling_control.lua";
     public int UpdateIntervalMs { get; set; } = 1000;
     public string LogLevel { get; set; } = "Information";
+    public bool EnableCSVLogging { get; set; } = false;
     public LHMConfigParameters LHMConfig { get; set; } = new LHMConfigParameters();
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
