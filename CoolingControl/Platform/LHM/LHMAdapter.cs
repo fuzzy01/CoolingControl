@@ -14,9 +14,11 @@ using Serilog;
 public class LHMAdapter : IPlatformAdapter, IDisposable
 {
     private readonly Computer _computer;
+    private readonly ConfigHelper _config;
 
     public LHMAdapter(ConfigHelper config)
     {
+        _config = config;
         _computer = new Computer
         {
             IsCpuEnabled = config.Config.LHMConfig.CpuEnabled,
@@ -34,14 +36,21 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
 
     public void Suspend()
     {
-        Log.Debug("Suspending hardware monitoring");
-        _computer.Close();
+        if (!_config.Config.DisableLHMReleaseOnSuspend)
+        {
+            Log.Debug("Suspending hardware monitoring");
+            _computer.Close();
+        }
     }
 
     public void Resume()
     {
-        Log.Debug("Resuming hardware monitoring");
-        _computer.Open();
+        if (!_config.Config.DisableLHMReleaseOnSuspend)
+        {
+
+            Log.Debug("Resuming hardware monitoring");
+            _computer.Open();
+        }
     }
 
     public Dictionary<string, float?> GetSensorValues(HashSet<string> sensorIdentifiers)

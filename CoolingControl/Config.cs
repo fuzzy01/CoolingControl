@@ -10,6 +10,7 @@ public class Config
     public string LogLevel { get; set; } = "Information";
     public bool EnableCSVLogging { get; set; } = false;
     public LHMConfigParameters LHMConfig { get; set; } = new LHMConfigParameters();
+    public bool DisableLHMReleaseOnSuspend { get; set; } = false;
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }
