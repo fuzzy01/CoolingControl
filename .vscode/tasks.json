@@ -19,18 +19,18 @@
       }
     },    
     {
-      "label": "Build Inno Setup Installer net9.0",
+      "label": "Build Inno Setup Installer net10.0",
       "type": "shell",
       "command": "C:/Program Files (x86)/Inno Setup 6/ISCC.exe",
       "args": [
-        "/FCoolingControlSetup-net9",
+        "/FCoolingControlSetup-net10",
         "CoolingControl/installer.iss"
       ],
       "group": {
         "kind": "build",
         "isDefault": false
       },
-      "dependsOn": ["Publish CoolingControl net9.0"],
+      "dependsOn": ["Publish CoolingControl net10.0"],
       "presentation": {
         "reveal": "always"
       }
@@ -63,7 +63,7 @@
       }
     },
     {
-      "label": "Publish CoolingControl net9.0",
+      "label": "Publish CoolingControl net10.0",
       "type": "shell",
       "command": "dotnet",
       "args": [
@@ -72,7 +72,7 @@
         "-c",
         "Release",
         "-f",
-        "net9.0-windows",
+        "net10.0-windows",
         "-r",
         "win-x64",
         "--no-self-contained",
