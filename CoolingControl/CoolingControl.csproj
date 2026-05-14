@@ -10,8 +10,8 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.1.0</Version>
-    <FileVersion>1.1.1.0</FileVersion>
+    <Version>1.1.2.0</Version>
+    <FileVersion>1.1.2.0</FileVersion>
     <InformationalVersion>1.1.1.0</InformationalVersion>
     <Author>Peter Laszlo</Author>
     <ApplicationIcon>cooling_control.ico</ApplicationIcon>
