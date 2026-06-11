@@ -28,7 +28,7 @@ public class ControlCalibration : BackgroundService
 
     protected void Calibrate(CancellationToken cancellationToken)
     {
-        var controls = _control_alias != null ? [_control_alias] : _config.Config.Controls.Select(f => f.Identifier).ToHashSet();
+        var controls = _control_alias != "all" ? [_control_alias] : _config.Config.Controls.Select(f => f.Alias).ToHashSet();
         
         try
         {
