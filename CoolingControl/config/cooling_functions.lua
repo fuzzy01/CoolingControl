@@ -157,43 +157,6 @@ function M.apply_linear_curve(sensor_value, curve)
     error("Curve is not sorted by sensor_value")
 end
 
---- Controls AIO pump speed based on the CPU power consumption.
----
---- It uses linear interpolation between the minimum and maximum RPM values
---- for the pump when the CPU power is between the idle and
---- maximum power thresholds. Limits for pump speed should be set
---- according to noise preferences and AIO size.
----
---- @param cpu_temp number: The current CPU temperature in °C.
---- @param cpu_power number: The current CPU power consumption.
---- @param idle_cpu_power number: The CPU power consumption at idle state.
---- @param max_cpu_power number: The maximum CPU power consumption.
---- @param min_pump_rpm number: The minimum pump speed in RPM.
---- @param max_pump_rpm number: The maximum pump speed in RPM.
---- @return number: The calculated pump speed in RPM.
-function M.aio_pump_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_pump_rpm, max_pump_rpm)
-
-    -- Safety override: If CPU temperature is too high, set max pump speed
-    if cpu_temp > 95 then
-        return max_pump_rpm
-    end
-
-    local pump_rpm
-  
-    if cpu_power <= idle_cpu_power then
-        pump_rpm = min_pump_rpm
-    elseif cpu_power >= max_cpu_power then
-        pump_rpm = max_pump_rpm
-    else
-        local ratio = (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power)
-        pump_rpm = min_pump_rpm + (max_pump_rpm - min_pump_rpm) * ratio
-    end  
-
-    pump_rpm = math.max(min_pump_rpm, math.min(max_pump_rpm, pump_rpm))
-
-    return pump_rpm
-end
-
 -- Global variables for PID control
 M.integral = {}
 
@@ -240,61 +203,6 @@ function M.aio_fan_pid_control(coolant_alias, coolant_temp, target_temp, min_fan
     log_debug(string.format("Temp: %.1f, Error: %.1f, Integral: %.1f, Fan: %.1f", coolant_temp, error, integral, fan_rpm))
 
     return math.min(max_fan_rpm, math.max(min_fan_rpm, fan_rpm))
-end
-
---- Controls fan speed based on the CPU power consumption.
----
---- It uses linear interpolation between the minimum and maximum RPM values
---- for the fan when the CPU power is between the idle and
---- maximum power thresholds. Limits for fan speed should be set
---- according to noise preferences and AIO size.
----
---- @param cpu_temp number: The current CPU temperature in °C.
---- @param cpu_power number: The current CPU power consumption.
---- @param idle_cpu_power number: The CPU power consumption at idle state.
---- @param max_cpu_power number: The maximum CPU power consumption.
---- @param min_fan_rpm number: The minimum fan speed in RPM.
---- @param max_fan_rpm number: The maximum fan speed in RPM.
---- @param ambient_temp number|nil: The ambient temperature in °C. Defaults to 24°C if not provided.
---- @return number: The calculated fan speed in RPM.
-function M.aio_fan_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_fan_rpm, max_fan_rpm, ambient_temp)
-    ambient_temp = ambient_temp or 24 -- Default ambient temperature if not provided
-
-    -- Safety override: If CPU temperature is too high, set max fan speed
-    if cpu_temp > 95 then
-        return max_fan_rpm
-    end
-
-    -- Temperature-based adjustment
-    local temp_modifier = 1.0
-    if cpu_temp >= 80 then
-        temp_modifier = temp_modifier * 1.1  -- Increase by 10% if temp >= 80°C
-    elseif cpu_temp <= 50 then
-        temp_modifier = temp_modifier * 0.9  -- Decrease by 10% if temp <= 50°C
-    end
-
-    -- Ambient temperature adjustment
-    local ambient_modifier = 1.0
-    if ambient_temp > 24 then
-        ambient_modifier = 1 + (ambient_temp - 24) * 0.02 -- Increase by 2% per °C above 24°C
-    elseif ambient_temp < 24 then
-        ambient_modifier = 1 - (24 - ambient_temp) * 0.01 -- Decrease by 1% per °C below 24°C
-    end
-   
-    local fan_rpm
-  
-    if cpu_power <= idle_cpu_power then
-        fan_rpm = min_fan_rpm
-    elseif cpu_power >= max_cpu_power then
-        fan_rpm = max_fan_rpm
-    else
-        local ratio = (cpu_power - idle_cpu_power) / (max_cpu_power - idle_cpu_power)
-        fan_rpm = min_fan_rpm + (max_fan_rpm - min_fan_rpm) * ratio
-    end  
-
-    local final_fan_rpm = math.max(min_fan_rpm, math.min(max_fan_rpm, fan_rpm * temp_modifier * ambient_modifier))
-
-    return final_fan_rpm
 end
 
 --- Resets the state variables used for cooling control.
