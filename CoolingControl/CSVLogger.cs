@@ -17,10 +17,13 @@ public class CSVLogger
     {
         _config = config;
         _filePath = "logs/cooling_control_log.csv";
+        Directory.CreateDirectory(Path.GetDirectoryName(_filePath) ?? ".");
 
         _streamWriter = new StreamWriter(_filePath, append: true);
         _streamWriter.AutoFlush = true;
-        _isHeaderWritten = false;
+
+        var fileExists = File.Exists(_filePath);
+        _isHeaderWritten = fileExists && new FileInfo(_filePath).Length > 0;
     }
 
     public void LogData(Dictionary<string, float?> sensorData, Dictionary<string, float> controlData)
@@ -63,5 +66,21 @@ public class CSVLogger
 
         // Append to file
         _streamWriter.Write(sb.ToString());
+    }
+
+    private bool _disposed;
+
+    ~CSVLogger()
+    {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        _streamWriter.Dispose();
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
