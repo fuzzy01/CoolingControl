@@ -15,7 +15,7 @@ class Program
     {
         string? cmd = args.Length >= 1 ? args[0] : null;
 
-        // Check for --help or -h
+        // Check for help or -h
         if (cmd == "help" || cmd == "-h")
         {
             PrintHelp();
@@ -133,6 +133,7 @@ class Program
         Console.WriteLine("Options:");
         Console.WriteLine("  help, -h         Display this help message and exit.");
         Console.WriteLine("  list-sensors     List all available hardware sensors and exit.");
+        Console.WriteLine("  calibrate        Calibrate the specified control or all controls.");
         Console.WriteLine();
         Console.WriteLine("Service Management:");
         Console.WriteLine("  To manage the service, use sc.exe commands as an administrator:");
