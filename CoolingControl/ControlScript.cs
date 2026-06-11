@@ -86,30 +86,50 @@ public class ControlScript : IDisposable
         {
             if (result[key] is LuaTable entry)
             {
-                if (entry["alias"] is not string alias)
+                if (entry["alias"] is not string alias || string.IsNullOrWhiteSpace(alias))
                 {
                     Log.Error("Lua table entry {Key} is missing 'alias'", key);
                     continue;
                 }
 
-                if (entry["value"] != null)
+                if (!_config.ControlConfigsByAlias.ContainsKey(alias))
                 {
-                    var value = Convert.ToSingle(entry["value"]);
-                    controlValues.Add(alias, value);
+                    Log.Error("Lua returned unknown control alias '{Alias}'", alias);
                     continue;
                 }
 
-                if (entry["rpm"] != null)
+                float value;
+                try
                 {
-                    // Convert RPM to control value
-                    var rpm = Convert.ToSingle(entry["rpm"]);
-                    var value = _config.ConvertRPMToPercent(alias, rpm);
-                    if (value == null)
+                    if (entry["value"] != null)
+                    {
+                        value = Convert.ToSingle(entry["value"]);
+                    }
+                    else if (entry["rpm"] != null)
+                    {
+                        var rpm = Convert.ToSingle(entry["rpm"]);
+                        var converted = _config.ConvertRPMToPercent(alias, rpm);
+                        if (converted == null)
+                            continue;
+                        value = converted.Value;
+                    }
+                    else
+                    {
+                        Log.Error("Lua table entry {Key} for alias '{Alias}' has neither 'value' nor 'rpm'", key, alias);
                         continue;
-
-                    controlValues.Add(alias, (float)value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Invalid numeric value in Lua entry {Key} for alias '{Alias}'", key, alias);
                     continue;
                 }
+
+                if (controlValues.ContainsKey(alias))
+                {
+                    Log.Warning("Duplicate Lua control alias '{Alias}' detected; overwriting previous value", alias);
+                }
+                controlValues[alias] = value;
             }
             else
             {
