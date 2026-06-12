@@ -2,3 +2,7 @@ CoolingControl/bin
 CoolingControl/obj
 CoolingControl/publish
 CoolingControl/output
+CoolingControl.Tests/bin
+CoolingControl.Tests/obj
+CoolingControl.Tests/publish
+CoolingControl.Tests/output

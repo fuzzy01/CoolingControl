@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="CoolingControl.Tests/CoolingControl.Tests.csproj" />
   <Project Path="CoolingControl/CoolingControl.csproj" />
 </Solution>
