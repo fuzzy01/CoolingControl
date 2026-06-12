@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Serilog;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("CoolingControl.Tests")]
 
 namespace CoolingControl;
 
@@ -18,6 +21,7 @@ public class ConfigHelper
 
         _config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configFilePath))
                     ?? throw new InvalidOperationException("Deserialized configuration is null.");
+        Validate(_config);
         Log.Information("Configuration loaded successfully from {ConfigFilePath}", configFilePath);
 
         _sensorConfigsByAlias = _config.Sensors.ToDictionary(f => f.Alias, f => f);
@@ -33,6 +37,62 @@ public class ConfigHelper
         var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText("config/config.json", jsonString);
         Log.Information("Configuration saved successfully to config/config.json");
+    }
+
+    internal static void Validate(Config config)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(config.ScriptPath))
+            errors.Add("ScriptPath must not be empty.");
+        else if (!File.Exists(config.ScriptPath))
+            errors.Add($"ScriptPath '{config.ScriptPath}' does not exist.");
+
+        if (config.UpdateIntervalMs <= 0)
+            errors.Add($"UpdateIntervalMs must be positive (got {config.UpdateIntervalMs}).");
+
+        string[] validLogLevels = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
+        if (!validLogLevels.Contains(config.LogLevel, StringComparer.OrdinalIgnoreCase))
+            errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");
+
+        if (config.Controls.Count == 0)
+            errors.Add("At least one control must be defined in Controls.");
+
+        var controlAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var controlIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < config.Controls.Count; i++)
+        {
+            var c = config.Controls[i];
+            if (string.IsNullOrWhiteSpace(c.Alias))
+                errors.Add($"Controls[{i}]: Alias must not be empty.");
+            else if (!controlAliases.Add(c.Alias))
+                errors.Add($"Controls[{i}]: Duplicate alias '{c.Alias}'.");
+
+            if (string.IsNullOrWhiteSpace(c.Identifier))
+                errors.Add($"Controls[{i}] ('{c.Alias}'): Identifier must not be empty.");
+            else if (!controlIdentifiers.Add(c.Identifier))
+                errors.Add($"Controls[{i}] ('{c.Alias}'): Duplicate identifier '{c.Identifier}'.");
+        }
+
+        var sensorAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sensorIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < config.Sensors.Count; i++)
+        {
+            var s = config.Sensors[i];
+            if (string.IsNullOrWhiteSpace(s.Alias))
+                errors.Add($"Sensors[{i}]: Alias must not be empty.");
+            else if (!sensorAliases.Add(s.Alias))
+                errors.Add($"Sensors[{i}]: Duplicate alias '{s.Alias}'.");
+
+            if (string.IsNullOrWhiteSpace(s.Identifier))
+                errors.Add($"Sensors[{i}] ('{s.Alias}'): Identifier must not be empty.");
+            else if (!sensorIdentifiers.Add(s.Identifier))
+                errors.Add($"Sensors[{i}] ('{s.Alias}'): Duplicate identifier '{s.Identifier}'.");
+        }
+
+        if (errors.Count > 0)
+            throw new InvalidOperationException(
+                "config.json validation failed:\n" + string.Join("\n", errors.Select(e => "  - " + e)));
     }
     
     public Dictionary<string, SensorConfig> SensorConfigsByAlias => _sensorConfigsByAlias;
