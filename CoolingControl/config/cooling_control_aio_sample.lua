@@ -44,9 +44,10 @@ function calculate_controls(sensors)
 
     -- AIO pump speed is fixed
     local aio_pump_speed = 80
+    
     table.insert(result, { alias = "AIO Pump", value = aio_pump_speed })
   
-    -- Case fan: Based on GPU board power mixed with AIO fan
+    -- Case fan: Based on GPU temperature mixed with AIO fan
     local gpu_temp = sensors["GPU Core"] or 50
 
     -- Apply moving average

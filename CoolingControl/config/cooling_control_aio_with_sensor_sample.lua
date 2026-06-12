@@ -11,68 +11,52 @@ end
 -- AIO coolant target temperature, adjust as needed
 local aio_coolant_target_temp = 40
 
--- AIO fan and pump RPM limits (not absolute limits), adjust as needed based on your AIO and how silent you want it to be
--- Increasing pump speed reduces CPU temperature, but the effect diminishes at higher speeds
--- High pump speeds may increase noise without proportional cooling benefits
-local min_aio_pump_rpm = 1600
-local max_aio_pump_rpm = 2800
+-- AIO fan RPM limits (not absolute limits), adjust as needed based on your AIO and how silent you want it to be
+-- Increasing fan speed reduces CPU temperature, but the effect diminishes at higher speeds
+-- High fan speeds may increase noise without proportional cooling benefits
 local min_aio_fan_rpm = 600
 local max_aio_fan_rpm = 1800
 
--- Idle / browsing CPU power, adjust based on your CPU
-local idle_cpu_power = 50
--- CPU power where we want max cooling, adjust based on your CPU
-local max_cpu_power = 240
 
--- Idle / browsing GPU board power %, adjust based on your GPU
-local idle_gpu_power = 20
--- GPU board power % where we want max case cooling, adjust based on your GPU
-local max_gpu_power = 80
+-- Silent case fan curve base on GPU temperature, adjust as needed based on your system and how silent you want it to be
+local case_fan_curve =  { 
+                        { sensor_value = 62, control_value = 500 }, 
+                        { sensor_value = 68, control_value = 700 },
+                        { sensor_value = 75, control_value = 1000 }, 
+                        { sensor_value = 83, control_value = 1600 } } 
 
--- Case fan limits
-local min_case_fan_rpm = 600
-local max_case_fan_rpm = 900
 
--- Case fan curve based on gpu power (example, adjust as needed)
-local case_gpu_fan_curve =  { { sensor_value = idle_gpu_power, control_value = min_case_fan_rpm }, { sensor_value = max_gpu_power, control_value = max_case_fan_rpm } } 
-
-local case_aio_fan_scale = max_case_fan_rpm / max_aio_fan_rpm
+local case_aio_fan_scale = 1600 / max_aio_fan_rpm
 
 function calculate_controls(sensors)
     local result = {}
 
-    local cpu_power = sensors["CPU Power"] or idle_cpu_power
-    local cpu_temp = sensors["CPU Package"] or 50
     local coolant_temp = sensors["T Sensor"] or 40
 
-    -- Apply moving average
-    cpu_power = cf.apply_ema("CPU Power", cpu_power)
-    cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
-
-    -- Calc AIO control
-    local aio_pump_rpm = cf.aio_pump_control(cpu_temp, cpu_power, idle_cpu_power, max_cpu_power, min_aio_pump_rpm, max_aio_pump_rpm)
-    local aio_fan_rpm = cf.aio_fan_pid_control("T Sensor", coolant_temp, 40, min_aio_fan_rpm, max_aio_fan_rpm)  
+    -- Calc AIO fan
+    local aio_fan_rpm = cf.aio_fan_pid_control("T Sensor", coolant_temp, aio_coolant_target_temp, min_aio_fan_rpm, max_aio_fan_rpm)  
     
-    -- Apply hysteresis based on CPU power only for pump
-    aio_pump_rpm = cf.apply_hysteresis("AIO Pump", aio_pump_rpm, cpu_power, idle_cpu_power, max_cpu_power, 5, 15)
-
-    table.insert(result, { alias = "AIO Pump", rpm = aio_pump_rpm })
     table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })
 
-    -- Case fan: Based on GPU board power mixed with AIO fan
-    local gpu_power = sensors["GPU Board Power"] or idle_gpu_power
+    -- AIO pump speed is fixed
+    local aio_pump_speed = 80
+
+    table.insert(result, { alias = "AIO Pump", value = aio_pump_speed })
+
+    -- Case fan: Based on GPU temperature mixed with AIO fan
+    local gpu_temp = sensors["GPU Core"] or 50
 
     -- Apply moving average
-    gpu_power = cf.apply_ema("GPU Board Power", gpu_power)
+    gpu_temp = cf.apply_ema("GPU Core", gpu_temp)
 
     -- Apply fan curve
-    local case_fan_rpm = cf.apply_linear_curve(gpu_power, case_gpu_fan_curve)
+    local case_fan_rpm = cf.apply_linear_curve(gpu_temp, case_fan_curve)
 
-    -- Apply hysteresis based on GPU power
-    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_power, idle_gpu_power, max_gpu_power, 5, 5)
+    -- Apply hysteresis based on GPU temperature
+    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_temp, 45, 83, 4, 2)
 
-    -- Mix with AIO fan
-    case_fan_rpm = math.min(max_case_fan_rpm, math.max(aio_fan_rpm * case_aio_fan_scale, case_fan_rpm))
+    -- Mix with AIO fan, max 1600 RPM for case fan to keep it quiet
+    case_fan_rpm = math.min(1600, math.max(aio_fan_rpm * case_aio_fan_scale, case_fan_rpm))
     
     table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
   

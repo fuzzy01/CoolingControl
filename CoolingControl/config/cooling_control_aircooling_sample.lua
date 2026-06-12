@@ -8,51 +8,56 @@ function on_resume()
     cf.on_resume()
 end
 
--- CPU fan limits (not absolute limits), adjust as needed based on your system and how silent you want it to be
-local min_cpu_fan_speed = 30
-local max_cpu_fan_speed = 70
+-- Silent CPU fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
+local cpu_fan_curve =  { 
+                        { sensor_value = 45, control_value = 600 }, 
+                        { sensor_value = 65, control_value = 900 },
+                        { sensor_value = 78, control_value = 1300 }, 
+                        { sensor_value = 85, control_value = 2230 } } 
 
--- Case fan limits
-local min_case_fan_speed = 40
-local max_case_fan_speed = 60
+-- Silent case fan curve base on GPU temperature, adjust as needed based on your system and how silent you want it to be
+local case_fan_curve =  { 
+                        { sensor_value = 62, control_value = 500 }, 
+                        { sensor_value = 68, control_value = 700 },
+                        { sensor_value = 75, control_value = 1000 }, 
+                        { sensor_value = 83, control_value = 1600 } } 
+                        
 
--- Fan configuration (example, adjust as needed)
-local cpu_fan_curve = { { sensor_value = 70, control_value = min_cpu_fan_speed }, { sensor_value = 90, control_value = max_cpu_fan_speed } } 
-local case_gpu_fan_curve =  { { sensor_value = 80, control_value = min_case_fan_speed }, { sensor_value = 90, control_value = max_case_fan_speed } } 
+-- max_case_fan_speed / max_cpu_fan_speed
+local case_cpu_fan_scale = 1600 / 2230
 
 function calculate_controls(sensors)
     local result = {}
 
-    -- CPU fan: Based on CPU package temperature
-    local cpu_temp = sensors["CPU Package"] or 0
+    local cpu_temp = sensors["CPU Package"] or 50
 
     -- Apply moving average
     cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
+   
+    -- Calc CPU fan
+    local cpu_fan_rpm = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
+   
+    -- Apply hysteresis based on CPU temperature
+    cpu_fan_rpm = cf.apply_hysteresis("CPU Fan", cpu_fan_rpm, cpu_temp, 30, 100, 4, 2)
 
-    -- Apply fan curve
-    local cpu_fan_speed = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
+    table.insert(result, { alias = "CPU Fan", rpm = cpu_fan_rpm })  
+ 
+    -- Case fan: Based on GPU temperature mixed with CPU fan
+    local gpu_temp = sensors["GPU Core"] or 50
 
-    -- Apply hysteresis
-    cpu_fan_speed = cf.apply_hysteresis("CPU Fan", cpu_fan_speed, cpu_temp, 30, 100, 4, 2)
-    
-    table.insert(result, { alias = "CPU Fan", value = cpu_fan_speed }) 
-
-    -- Case fan: Based on GPU temperature
-    local gpu_temp = sensors["GPU Core"] or 0
-    
     -- Apply moving average
     gpu_temp = cf.apply_ema("GPU Core", gpu_temp)
-    
+
     -- Apply fan curve
-    local case_fan_speed = cf.apply_linear_curve(gpu_temp, case_gpu_fan_curve)
+    local case_fan_rpm = cf.apply_linear_curve(gpu_temp, case_fan_curve)
 
-    -- Apply hysteresis
-    case_fan_speed = cf.apply_hysteresis("Case Fan", case_fan_speed, gpu_temp, 30, 100, 4, 2)
+    -- Apply hysteresis based on GPU temperature
+    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_temp, 45, 83, 4, 2)
 
-    -- Mix with CPU fan 
-    case_fan_speed = math.min(max_case_fan_speed, math.max(cpu_fan_speed * 0.6, gpu_fan_speed))
+    -- Mix with CPU fan, max 1600 RPM for case fan to keep it quiet
+    case_fan_rpm = math.min(1600, math.max(cpu_fan_rpm * case_cpu_fan_scale, case_fan_rpm))
     
-    table.insert(result, { alias = "Case Fan", value = case_fan_speed })
-
+    table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
+  
     return result
 end
