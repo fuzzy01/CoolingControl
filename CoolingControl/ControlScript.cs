@@ -23,9 +23,16 @@ public class ControlScript : IDisposable
         _lua.RegisterFunction("log_debug", typeof(ControlScript).GetMethod(nameof(LuaLogDebug), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_information", typeof(ControlScript).GetMethod(nameof(LuaLogInformation), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_error", typeof(ControlScript).GetMethod(nameof(LuaLogError), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
-        _lua.DoFile(config.Config.ScriptPath);
+        try
+        {
+            _lua.DoFile(config.Config.ScriptPath);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to load Lua script '{config.Config.ScriptPath}': {ex.Message}", ex);
+        }
 
-        _calculate_controls = _lua["calculate_controls"] as LuaFunction ?? throw new InvalidOperationException("Lua function 'calculate_controls' is not defined in the Lua script");
+        _calculate_controls = _lua["calculate_controls"] as LuaFunction ?? throw new InvalidOperationException($"Lua script '{config.Config.ScriptPath}' must define a 'calculate_controls' function");
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
 
