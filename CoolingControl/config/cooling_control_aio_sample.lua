@@ -8,24 +8,27 @@ function on_resume()
     cf.on_resume()
 end
 
--- Silent AIO fan curve base on CPU temperature, adjust as needed based on your system and how silent you want it to be
+-- Silent AIO fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
+-- Temps are based on Intel 14th Gen i7-14700K with 360 AIO, adjust as needed for your CPU
 local cpu_fan_curve =  { 
-                        { sensor_value = 45, control_value = 600 }, 
-                        { sensor_value = 65, control_value = 900 },
-                        { sensor_value = 78, control_value = 1300 }, 
-                        { sensor_value = 85, control_value = 2230 } } 
-
--- Silent case fan curve base on GPU temperature, adjust as needed based on your system and how silent you want it to be
-local case_fan_curve =  { 
-                        { sensor_value = 62, control_value = 500 }, 
-                        { sensor_value = 68, control_value = 700 },
-                        { sensor_value = 75, control_value = 1000 }, 
-                        { sensor_value = 83, control_value = 1600 } } 
+                        { sensor_value = 60, control_value = 20 }, -- Dekstop idle / Light load
+                        { sensor_value = 75, control_value = 50 }, -- Normal load / Gaming
+                        { sensor_value = 95, control_value = 100 } } -- Critical temp, max RPM
                         
+-- Silent case fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
+local case_fan_cpu_curve =  { 
+                        { sensor_value = 60, control_value = 20 },  -- Desktop idle
+                        { sensor_value = 75, control_value = 50 }, -- Normal load / Gaming
+                        { sensor_value = 95, control_value = 100 } } -- Critical temp, max RPM
 
--- max_case_fan_speed / max_aio_fan_speed
-local case_aio_fan_scale = 1600 / 2230
-
+-- Silent case fan curve based on GPU temperature, adjust as needed based on your system and how silent you want it to be
+-- Temps are based on NVIDIA RTX 5070 Ti
+local case_fan_gpu_curve =  { 
+                        { sensor_value = 45, control_value = 20 },  -- Desktop idle
+                        { sensor_value = 55, control_value = 50 },  -- Gaming flat curve start
+                        { sensor_value = 68, control_value = 50 },  -- Gaming flat curve end
+                        { sensor_value = 76, control_value = 70 } } -- Stress test
+                      
 function calculate_controls(sensors)
     local result = {}
 
@@ -35,34 +38,49 @@ function calculate_controls(sensors)
     cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
    
     -- Calc AIO fan
-    local aio_fan_rpm = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
+    local aio_fan_speed = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
    
     -- Apply hysteresis based on CPU temperature
-    aio_fan_rpm = cf.apply_hysteresis("AIO Fan", aio_fan_rpm, cpu_temp, 30, 100, 4, 2)
+    aio_fan_speed = cf.apply_hysteresis("AIO Fan", aio_fan_speed, cpu_temp, 30, 100, 4, 2)
 
-    table.insert(result, { alias = "AIO Fan", rpm = aio_fan_rpm })  
+    table.insert(result, { alias = "AIO Fan", value = aio_fan_speed })  
 
     -- AIO pump speed is fixed
     local aio_pump_speed = 80
     
     table.insert(result, { alias = "AIO Pump", value = aio_pump_speed })
   
-    -- Case fan: Based on GPU temperature mixed with AIO fan
+    -- Case fan: Based on CPU temperature
+    
+    -- Apply fan curve
+    local case_fan_cpu_speed = cf.apply_linear_curve(cpu_temp, case_fan_cpu_curve)
+
+    -- Apply hysteresis based on CPU temperature
+    case_fan_cpu_speed = cf.apply_hysteresis("Case Fan CPU", case_fan_cpu_speed, cpu_temp, 30, 100, 4, 2)
+ 
+    -- Case fan: Based on GPU board power
     local gpu_temp = sensors["GPU Core"] or 50
 
     -- Apply moving average
     gpu_temp = cf.apply_ema("GPU Core", gpu_temp)
 
     -- Apply fan curve
-    local case_fan_rpm = cf.apply_linear_curve(gpu_temp, case_fan_curve)
+    local case_fan_gpu_speed = cf.apply_linear_curve(gpu_temp, case_fan_gpu_curve)
 
     -- Apply hysteresis based on GPU temperature
-    case_fan_rpm = cf.apply_hysteresis("Case Fan", case_fan_rpm, gpu_temp, 45, 83, 4, 2)
+    case_fan_gpu_speed = cf.apply_hysteresis("Case Fan GPU", case_fan_gpu_speed, gpu_temp, 45, 83, 4, 2)
 
-    -- Mix with AIO fan, max 1600 RPM for case fan to keep it quiet
-    case_fan_rpm = math.min(1600, math.max(aio_fan_rpm * case_aio_fan_scale, case_fan_rpm))
+    -- Mix the two curves, use gpu fan curve only if GPU fans are spinning, otherwise use only CPU fan curve.
+    local gpu_fan_1_rpm = sensors["GPU Fan 1"] or 0
+    local gpu_fan_2_rpm = sensors["GPU Fan 2"] or 0
+    local case_fan_speed
+    if gpu_fan_1_rpm > 0 or gpu_fan_2_rpm > 0 then
+        case_fan_speed =  math.max(case_fan_cpu_speed, case_fan_gpu_speed)
+    else
+        case_fan_speed = case_fan_cpu_speed
+    end
     
-    table.insert(result, { alias = "Case Fan", rpm = case_fan_rpm })
+    table.insert(result, { alias = "Case Fan", value = case_fan_speed })
   
     return result
 end
