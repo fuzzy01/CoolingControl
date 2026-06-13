@@ -39,26 +39,27 @@
   ],
   "Sensors": [
     {
+      "Platform": "LHM",
       "Identifier": "/intelcpu/0/temperature/22",
       "Alias": "CPU Package"
     },
     {
-      "Identifier": "/intelcpu/0/power/0",
-      "Alias": "CPU Power"
-    },
-    {
+      "Platform": "LHM",
       "Identifier": "/gpu-nvidia/0/temperature/0",
       "Alias": "GPU Core"
     },
     {
-      "Identifier": "/gpu-nvidia/0/temperature/2",
-      "Alias": "GPU Hot Spot"
+      "Platform": "LHM",
+      "Identifier": "/gpu-nvidia/0/fan/1",
+      "Alias": "GPU Fan 1"
     },
-    {
-      "Identifier": "/gpu-nvidia/0/power/0",
-      "Alias": "GPU Power"
+   {
+      "Platform": "LHM",
+      "Identifier": "/gpu-nvidia/0/fan/2",
+      "Alias": "GPU Fan 2"
     },
-    {
+      {
+      "Platform": "LHM",
       "Identifier": "/lpc/nct6798d/0/temperature/8",
       "Alias": "T Sensor"
     }
