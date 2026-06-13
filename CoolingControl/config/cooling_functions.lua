@@ -212,6 +212,7 @@ function M.on_resume()
     M.last_trigger_sensor_values = {} 
     M.breach_counters = {} 
     M.last_control_values = {} 
+    M.integral = {}
 end
 
 return M
