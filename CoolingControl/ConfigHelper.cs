@@ -9,6 +9,7 @@ namespace CoolingControl;
 public class ConfigHelper
 {
     private readonly Config _config;
+    private readonly string _configFilePath;
     private readonly Dictionary<string, SensorConfig> _sensorConfigsByAlias;
     private readonly Dictionary<string, SensorConfig> _sensorConfigsByIdentifier;
     private readonly HashSet<string> _sensorIdentifiers;
@@ -18,7 +19,7 @@ public class ConfigHelper
 
     public ConfigHelper(string configFilePath)
     {
-
+        _configFilePath = configFilePath;
         _config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configFilePath))
                     ?? throw new InvalidOperationException("Deserialized configuration is null.");
         Validate(_config);
@@ -35,8 +36,8 @@ public class ConfigHelper
     public void SaveConfig()
     {
         var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText("config/config.json", jsonString);
-        Log.Information("Configuration saved successfully to config/config.json");
+        File.WriteAllText(_configFilePath, jsonString);
+        Log.Information("Configuration saved successfully to {ConfigFilePath}", _configFilePath);
     }
 
     internal static void Validate(Config config)
