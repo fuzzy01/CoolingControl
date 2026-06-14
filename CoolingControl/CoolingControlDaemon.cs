@@ -126,6 +126,7 @@ public class CoolingControlDaemon : BackgroundService
         catch (Exception ex)
         {
             Log.Error(ex, "Unexpected error in control loop");
+            Environment.ExitCode = 1;
         }
         finally
         {
