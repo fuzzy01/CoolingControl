@@ -12,6 +12,8 @@ public class Config
     public int MaxControlLoopErrors { get; set; } = 10;
     public LHMConfigParameters LHMConfig { get; set; } = new LHMConfigParameters();
     public bool DisableLHMReleaseOnSuspend { get; set; } = false;
+    public bool StatusServerEnabled { get; set; } = true;
+    public int StatusServerPort { get; set; } = 8888;
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }

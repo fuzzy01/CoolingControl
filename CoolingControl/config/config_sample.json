@@ -58,7 +58,7 @@
       "Identifier": "/gpu-nvidia/0/fan/2",
       "Alias": "GPU Fan 2"
     },
-      {
+    {
       "Platform": "LHM",
       "Identifier": "/lpc/nct6798d/0/temperature/8",
       "Alias": "T Sensor"

@@ -107,6 +107,8 @@ class Program
             .ConfigureServices((hostContext, services) =>
             {
                 services.AddSingleton(config);
+                services.AddSingleton<IStatusSnapshot, StatusSnapshot>();
+                services.AddHostedService<StatusServer>();
                 services.AddHostedService<CoolingControlDaemon>();
             });
 

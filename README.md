@@ -146,6 +146,8 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `UpdateIntervalMs`: Interval in milliseconds between reading sensors, running control logic and setting controls (default: 1000 ms).
   - `LogLevel`: Logging level (e.g., "Information", "Debug").
   - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
+  - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
+  - `StatusServerPort`: Port for the HTTP status server dashboard (default: 8888).
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
@@ -269,6 +271,18 @@ end
   ```
 
 - Logs to `logs\cooling_control.log` in the application directory.
+
+### Monitoring Status (HTTP Dashboard)
+
+- The application runs a local HTTP status server on `localhost:8888` (configurable via `StatusServerPort` in `config.json`)
+- Open a browser and navigate to: `http://localhost:8888`
+- The dashboard displays:
+  - **Sensors**: Real-time sensor values (temperatures, power, load, etc.) with aliases
+  - **Controls**: Current control outputs (fan/pump speeds in RPM or %)
+  - **Service Info**: Uptime, last update time, script path, update interval
+- The dashboard auto-refreshes every second
+- JSON API available at: `http://localhost:8888/api/status`
+- Disable the server with `"StatusServerEnabled": false` in `config.json` if not needed
 
 ### Listing Sensors
 

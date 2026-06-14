@@ -18,17 +18,19 @@ public class CoolingControlDaemon : BackgroundService
     private readonly IMonitoringPlatform _monitor;
     private readonly ControlScript _script;
     private readonly CSVLogger _CSVLogger;
+    private readonly IStatusSnapshot _statusSnapshot;
     private readonly int _intervalMs;
     // private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly BlockingCollection<PowerModes> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
-    public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime)
+    public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime, IStatusSnapshot statusSnapshot)
     {
         _config = config;
         _monitor = new DefaultMonitorPlatform(_config, new LHMAdapter(_config));
         _script = new ControlScript(_config);
         _CSVLogger = new CSVLogger(_config);
+        _statusSnapshot = statusSnapshot;
         _intervalMs = _config.Config.UpdateIntervalMs;
         _messageQueue = new BlockingCollection<PowerModes>();
         SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
@@ -84,6 +86,9 @@ public class CoolingControlDaemon : BackgroundService
 
                         // Apply control settings
                         var res = _monitor.SetControls(settings);
+
+                        // Update status snapshot for HTTP server
+                        _statusSnapshot.Update(sensorData, settings, DateTime.UtcNow);
                     }
                 }
                 catch (Exception ex)
