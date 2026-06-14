@@ -1,6 +1,6 @@
-; Inno Setup script for CollingControl
+; Inno Setup script for CoolingControl
 #define MyAppName "CoolingControl"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.4.0"
 #define MyAppPublisher "Fuzzy01 - Peter Laszlo"
 #define MyAppExeName "CoolingControl.exe"
 
@@ -42,7 +42,8 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create CoolingControl binPath= ""{app}\{#MyAppExeName}"" DisplayName= ""CoolingControl"" start= auto"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "description CoolingControl ""Service that monitors hardware sensors and applies control settings based on a user-defined script"""; Flags: runhidden waituntilterminated
-Filename: "{sys}\sc.exe"; Parameters: "failure CoolingControl reset= 0 actions= restart/5000/restart/5000/none/0"; Flags: runhidden waituntilterminated
+Filename: "{sys}\sc.exe"; Parameters: "failure CoolingControl reset= 86400 actions= restart/5000/restart/5000/restart/30000"; Flags: runhidden waituntilterminated
+Filename: "{sys}\sc.exe"; Parameters: "failureflag CoolingControl 1"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start CoolingControl"; Description: "Start Windows Service"; Flags: runhidden waituntilterminated;
 
 [UninstallRun]
@@ -62,6 +63,7 @@ begin
       Exec('sc.exe', 'stop CoolingControl', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       if ResultCode <> 0 then
         Log('Failed to stop CoolingControl service. ResultCode: ' + IntToStr(ResultCode));
+      Exec(ExpandConstant('{sys}\timeout.exe'), '/T 5 /NOBREAK', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     end;
   end;
 end;
