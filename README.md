@@ -79,6 +79,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   "ScriptPath": "config/cooling_control.lua",
   "UpdateIntervalMs": 1000,
   "LogLevel": "Information",
+  "MaxControlLoopErrors": 10,
   "LHMConfig": {
     "CpuEnabled": true,
     "GpuEnabled": true,
@@ -142,8 +143,9 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
 
 - Description of the fields:
   - `ScriptPath`: Path to the Lua script for fan control logic (e.g., `config/cooling_control.lua`).
-  - `UpdateIntervalMs`: Interval in milliseconds between reading sensors, running control logic and setting controls (default: 1000 ms).  
+  - `UpdateIntervalMs`: Interval in milliseconds between reading sensors, running control logic and setting controls (default: 1000 ms).
   - `LogLevel`: Logging level (e.g., "Information", "Debug").
+  - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
