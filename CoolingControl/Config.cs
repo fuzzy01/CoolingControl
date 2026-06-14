@@ -9,6 +9,7 @@ public class Config
     public int UpdateIntervalMs { get; set; } = 1000;
     public string LogLevel { get; set; } = "Information";
     public bool EnableCSVLogging { get; set; } = false;
+    public int MaxControlLoopErrors { get; set; } = 10;
     public LHMConfigParameters LHMConfig { get; set; } = new LHMConfigParameters();
     public bool DisableLHMReleaseOnSuspend { get; set; } = false;
     public List<ControlConfig> Controls { get; set; } = [];

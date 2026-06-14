@@ -63,7 +63,7 @@ public class CoolingControlDaemon : BackgroundService
         try
         {
             bool isSuspended = false;
-            int errorCount = 0;
+            var recentErrors = new Queue<DateTime>();
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
@@ -89,8 +89,11 @@ public class CoolingControlDaemon : BackgroundService
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Error in control loop");
-                    errorCount++;
-                    if (errorCount >= 10)
+                    var now = DateTime.UtcNow;
+                    recentErrors.Enqueue(now);
+                    while (recentErrors.Count > 0 && (now - recentErrors.Peek()).TotalSeconds > 60)
+                        recentErrors.Dequeue();
+                    if (recentErrors.Count >= _config.Config.MaxControlLoopErrors)
                     {
                         Log.Error("Too many errors in control loop, stopping service");
                         throw new InvalidOperationException("Too many errors in control loop, stopping service");

@@ -51,6 +51,9 @@ public class ConfigHelper
         if (config.UpdateIntervalMs <= 0)
             errors.Add($"UpdateIntervalMs must be positive (got {config.UpdateIntervalMs}).");
 
+        if (config.MaxControlLoopErrors <= 0)
+            errors.Add($"MaxControlLoopErrors must be positive (got {config.MaxControlLoopErrors}).");
+
         string[] validLogLevels = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         if (!validLogLevels.Contains(config.LogLevel, StringComparer.OrdinalIgnoreCase))
             errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");
