@@ -29,7 +29,7 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
 ### Prerequisites
 
 - Windows 10 or later.
-- .NET 8 runtime  or .NET 9 runtime (optional).
+- .NET 8 runtime  or .NET 10 runtime (optional).
 - Administrator privileges for installation and service management.
 - Compatible hardware supported by Libre Hardware Monitor.
 
