@@ -43,6 +43,23 @@ public class DefaultRPMCalibrator : IRPMCalibrator
         return value;
     }
 
+    public float? GetSensorValue(string alias)
+    {
+        if (!_config.SensorConfigsByAlias.TryGetValue(alias, out var sensorConfig))
+        {
+            Log.Error("Sensor {Alias} not configured", alias);
+            return null;
+        }
+
+        var res = _adapter.GetSensorValues([sensorConfig.Identifier]);
+        if (!res.TryGetValue(sensorConfig.Identifier, out var value))
+        {
+            Log.Error("Failed to retrieve sensor value for {Alias}", alias);
+            return null;
+        }
+        return value;
+    }
+
     public float? GetRPMSensorValue(string alias)
     {
         if (!_config.ControlConfigsByAlias.TryGetValue(alias, out var controlConfig))

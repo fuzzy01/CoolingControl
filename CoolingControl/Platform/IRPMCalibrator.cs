@@ -29,6 +29,13 @@ public interface IRPMCalibrator : IDisposable
     bool SetControl(string alias, float controlValue);
 
     /// <summary>
+    /// Gets the current value of the specified sensor by alias.
+    /// </summary>
+    /// <param name="alias">The alias identifying the sensor.</param>
+    /// <returns>The sensor value if available; otherwise, <c>null</c>.</returns>
+    float? GetSensorValue(string alias);
+
+    /// <summary>
     /// Releases (resets) the specified control to its default state.
     /// </summary>
     /// <param name="alias">The identifier for which to release control.</param>
