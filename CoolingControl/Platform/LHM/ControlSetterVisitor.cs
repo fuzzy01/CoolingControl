@@ -38,7 +38,7 @@ public class ControlSetterVisitor : IVisitor
 
                 if (sensor.Control == null)
                 {
-                    Log.Error("Control for {Identifier} is not available", sensor.Identifier.ToString);
+                    Log.Error("Control for {Identifier} is not available", sensor.Identifier.ToString());
                     continue;
                 }
 
