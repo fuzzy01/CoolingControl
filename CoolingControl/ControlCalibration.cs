@@ -141,7 +141,7 @@ public class ControlCalibration : BackgroundService
 
                 if (!_calibrator.SetControl(control_alias, control_value))
                     return null;
-                Task.Delay(RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
+                Task.Delay(2 * RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var stableRpm = _calibrator.GetRPMSensorValue(control_alias);
