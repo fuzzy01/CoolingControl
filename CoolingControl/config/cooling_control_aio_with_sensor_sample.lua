@@ -58,7 +58,7 @@ function calculate_controls(sensors)
     -- Apply hysteresis based on CPU temperature
     case_fan_cpu_speed = cf.apply_hysteresis("Case Fan CPU", case_fan_cpu_speed, cpu_temp, 30, 100, 4, 2)
  
-    -- Case fan: Based on GPU board power
+    -- Case fan: Based on GPU temperature
     local gpu_temp = sensors["GPU Core"] or 50
 
     -- Apply moving average
