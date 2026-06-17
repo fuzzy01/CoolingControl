@@ -82,12 +82,12 @@ public class ControlCalibration : BackgroundService
         }
         finally
         {
-            _hostApplicationLifetime.StopApplication();
-
             foreach (var control_alias in controls)
             {
                 _calibrator.ReleaseControl(control_alias);
             }
+
+            _hostApplicationLifetime.StopApplication();
 
             _calibrator.Dispose();
         }
@@ -101,7 +101,7 @@ public class ControlCalibration : BackgroundService
             return false;
 
         // Wait for the control to stop
-        for (int i = 0; i <= StopSampleCount; i++)
+        for (int i = 0; i < StopSampleCount; i++)
         {
             Task.Delay(StopSampleIntervalMs, cancellationToken).Wait(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -188,7 +188,7 @@ public class ControlCalibration : BackgroundService
             }
         }
 
-        Log.Information("Control {Alias} did not to stop", control_alias);
+        Log.Information("Control {Alias} failed to stop", control_alias);
         return 0;
     }
 
@@ -219,7 +219,8 @@ public class ControlCalibration : BackgroundService
                 }
                 avg_rpm += (float)rpm;
 
-                Task.Delay(RPMSampleIntervalMs, cancellationToken).Wait(cancellationToken);
+                if (i < RPMSampleCount - 1)
+                    Task.Delay(RPMSampleIntervalMs, cancellationToken).Wait(cancellationToken);
             }
             avg_rpm /= RPMSampleCount;
 
