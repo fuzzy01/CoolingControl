@@ -85,7 +85,8 @@ public class ControlScript : IDisposable
         _lua["sensors"] = sensorValues;
 
         // Call the Lua function
-        LuaTable result = _calculate_controls.Call(_lua["sensors"])[0] as LuaTable ?? throw new InvalidOperationException("Lua function 'calculate_controls' did not return a valid table");
+        var callResult = _calculate_controls.Call(_lua["sensors"]);
+        LuaTable result = (callResult.Length > 0 ? callResult[0] as LuaTable : null) ?? throw new InvalidOperationException("Lua function 'calculate_controls' did not return a valid table");
 
         // Parse the result
         var controlValues = new Dictionary<string, float>();
