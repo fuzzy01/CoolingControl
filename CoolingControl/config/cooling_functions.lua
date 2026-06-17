@@ -59,7 +59,7 @@ function M.apply_hysteresis(control_alias, control_value, sensor_value, min_valu
     local breach_counter = M.breach_counters[control_alias] or 0
 
     local function handle_new_control()
-        if breach_counter == response_time then
+        if breach_counter >= response_time then
             -- Response time reached, apply control value
             M.last_trigger_sensor_values[control_alias] = sensor_value
             M.last_control_values[control_alias] = control_value
