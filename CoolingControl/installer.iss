@@ -1,6 +1,6 @@
 ; Inno Setup script for CoolingControl
 #define MyAppName "CoolingControl"
-#define MyAppVersion "1.1.4.0"
+#define MyAppVersion "1.1.5.0"
 #define MyAppPublisher "Fuzzy01 - Peter Laszlo"
 #define MyAppExeName "CoolingControl.exe"
 
@@ -53,6 +53,11 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#MyAppExeName} /F"; Flags: run
 Filename: "{sys}\sc.exe"; Parameters: "delete CoolingControl"; Flags: runhidden waituntilterminated
 
 [Code]
+procedure InitializeWizard;
+begin
+  WizardForm.Show;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
