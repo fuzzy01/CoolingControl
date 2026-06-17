@@ -44,8 +44,9 @@ public class CSVLogger
             if (controlData.Count > 0)
             {
                 sb.Append(',');
-                sb.AppendLine(string.Join(",", controlData.Keys.Select(k => k)));
+                sb.Append(string.Join(",", controlData.Keys.Select(k => k)));
             }
+            sb.AppendLine();
             _streamWriter.Write(sb.ToString());
             _isHeaderWritten = true;
             sb.Clear();
@@ -61,8 +62,9 @@ public class CSVLogger
         if (controlData.Count > 0)
         {
             sb.Append(',');
-            sb.AppendLine(string.Join(",", controlData.Values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+            sb.Append(string.Join(",", controlData.Values.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))));
         }
+        sb.AppendLine();
 
         // Append to file
         _streamWriter.Write(sb.ToString());
