@@ -43,6 +43,7 @@ public class ControlConfig
     public bool ZeroRPM { get; set; } = false;
     public string RPMSensor { get; set; } = string.Empty;
     public List<RPMCalibrationData> RPMCalibration { get; set; } = new List<RPMCalibrationData>();
+    public float? ThermalMinControl { get; set; } = null;
 }
 
 public class RPMCalibrationData

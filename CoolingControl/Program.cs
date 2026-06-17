@@ -82,6 +82,30 @@ class Program
             return;
         }
 
+        // Check for calibrate-temp command-line option
+        if (cmd == "calibrate-temp")
+        {
+            if (args.Length < 4 || !float.TryParse(args[3], out float maxTemp))
+            {
+                Log.Error("Usage: calibrate-temp <control_alias> <sensor_alias> <max_temp>");
+                Log.Error("Example: calibrate-temp aio_fans cpu_temp 85");
+                return;
+            }
+
+            var parameters = new TempCalibrationParams(args[1], args[2], maxTemp);
+            try
+            {
+                TempCalibrationBuilder(args, config, parameters).Build().Run();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Unexpected error");
+                return;
+            }
+
+            return;
+        }
+
         // Startup delay
         Task.Delay(4000).Wait(); // Wait for 4 seconds to allow the system to stabilize
 
@@ -123,6 +147,16 @@ class Program
                 services.AddHostedService<ControlCalibration>();
             });
 
+    private static IHostBuilder TempCalibrationBuilder(string[] args, ConfigHelper config, TempCalibrationParams parameters) =>
+        Host.CreateDefaultBuilder(args)
+            .UseSerilog()
+            .ConfigureServices((hostContext, services) =>
+            {
+                services.AddSingleton(config);
+                services.AddSingleton(parameters);
+                services.AddHostedService<TempCalibration>();
+            });
+
     private static void PrintHelp()
     {
         string version = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion ?? "unknown";
@@ -136,6 +170,9 @@ class Program
         Console.WriteLine("  help, -h         Display this help message and exit.");
         Console.WriteLine("  list-sensors     List all available hardware sensors and exit.");
         Console.WriteLine("  calibrate        Calibrate the specified control or all controls.");
+        Console.WriteLine("  calibrate-temp   Find minimum fan % to keep a sensor below a target temperature. (Experimental feature)");
+        Console.WriteLine("                   Usage: calibrate-temp <control_alias> <sensor_alias> <max_temp>");
+        Console.WriteLine("                   Example: calibrate-temp aio_fans cpu_temp 85");
         Console.WriteLine();
         Console.WriteLine("Service Management:");
         Console.WriteLine("  To manage the service, use sc.exe commands as an administrator:");
