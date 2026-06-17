@@ -13,6 +13,14 @@ public class ControlCalibration : BackgroundService
     private readonly string _control_alias;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
+    private const int StopSampleCount = 10;
+    private const int StopSampleIntervalMs = 1000;
+    private const int StartStabilizeMs = 2000;
+    private const int StopStabilizeMs = 8000;
+    private const int RPMStabilizeMs = 8000;
+    private const int RPMSampleCount = 10;
+    private const int RPMSampleIntervalMs = 500;
+
     public ControlCalibration(ConfigHelper config, string control_alias, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
@@ -93,9 +101,9 @@ public class ControlCalibration : BackgroundService
             return false;
 
         // Wait for the control to stop
-        for (int i = 0; i <= 10; i++)
+        for (int i = 0; i <= StopSampleCount; i++)
         {
-            Task.Delay(1000, cancellationToken).Wait(cancellationToken);
+            Task.Delay(StopSampleIntervalMs, cancellationToken).Wait(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var rpm = _calibrator.GetRPMSensorValue(control_alias);
             if (!rpm.HasValue)
@@ -119,7 +127,7 @@ public class ControlCalibration : BackgroundService
             if (!_calibrator.SetControl(control_alias, control_value))
                 return null;
 
-            Task.Delay(2000, cancellationToken).Wait(cancellationToken);
+            Task.Delay(StartStabilizeMs, cancellationToken).Wait(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
             var rpm = _calibrator.GetRPMSensorValue(control_alias);
@@ -133,7 +141,7 @@ public class ControlCalibration : BackgroundService
 
                 if (!_calibrator.SetControl(control_alias, control_value))
                     return null;
-                Task.Delay(6000, cancellationToken).Wait(cancellationToken);
+                Task.Delay(RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var stableRpm = _calibrator.GetRPMSensorValue(control_alias);
@@ -168,7 +176,7 @@ public class ControlCalibration : BackgroundService
             if (!_calibrator.SetControl(control_alias, control_value))
                 return null;
 
-            Task.Delay(6000, cancellationToken).Wait(cancellationToken);
+            Task.Delay(StopStabilizeMs, cancellationToken).Wait(cancellationToken);
 
             var rpm = _calibrator.GetRPMSensorValue(control_alias);
             if (!rpm.HasValue)
@@ -195,11 +203,11 @@ public class ControlCalibration : BackgroundService
             if (!_calibrator.SetControl(control_alias, control_value))
                 return null;
 
-            Task.Delay(control_value == 100 ? 10000 : 6000, cancellationToken).Wait(cancellationToken);
+            Task.Delay(control_value == 100 ? 2 * RPMStabilizeMs : RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
 
             // Make multiple measurments
             float avg_rpm = 0f;
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < RPMSampleCount; i++)
             {
                 var rpm = _calibrator.GetRPMSensorValue(control_alias);
                 if (!rpm.HasValue)
@@ -211,9 +219,9 @@ public class ControlCalibration : BackgroundService
                 }
                 avg_rpm += (float)rpm;
 
-                Task.Delay(500, cancellationToken).Wait(cancellationToken);
+                Task.Delay(RPMSampleIntervalMs, cancellationToken).Wait(cancellationToken);
             }
-            avg_rpm /= 10f;
+            avg_rpm /= RPMSampleCount;
 
             var r = (float)Math.Round(avg_rpm);
             Log.Information("Control {Alias} {Value}=>{Rpm}", control_alias, control_value, r);
