@@ -20,7 +20,7 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
   - **PID control**: PID control for AIO fan speed based on coolant temperature.
   - **Global State**: Maintains state across control updates.
 - **Service Management**: Runs as a Windows service or in console mode.
-- **Windows power event support**: Power events (suspend/resume) are handled by the application, and control Lua script is also notified.
+- **Lifecycle events**: Service startup/shutdown and power events (suspend/resume) trigger Lua callbacks so the script can be notified and manage state.
 - **Resource Cleanup**: Proper releasing of hardware resources to BIOS control on service stop.
 - **Installer**: Inno Setup based installer preserves user-modified files `config.json` and `cooling_control.lua`.
 
@@ -166,6 +166,17 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
 ```lua
 local cf = require("config/cooling_functions")
 
+function on_start()
+    log_information("CoolingControl started")
+    -- Example: Log control and sensor configuration
+    for alias, ctrl in pairs(control_config) do
+        log_debug("Control: " .. alias .. " (min_start=" .. ctrl.min_start .. "%, min_stop=" .. ctrl.min_stop .. "%)")
+    end
+    for alias, sensor in pairs(sensor_config) do
+        log_debug("Sensor: " .. alias .. " (identifier=" .. sensor.identifier .. ")")
+    end
+end
+
 function on_resume()
     cf.on_resume()
 end
@@ -232,8 +243,29 @@ end
 
 - Description of the functions:
   - `calculate_controls(sensors)`: Main function for calculating fan/pump speeds based on sensor data. The `sensors` parameter is a table containing the sensor values defined in `config.json`. The function returns a table with the calculated RPM values (rpm field) or percentage value (value field) for each control defined in `config.json`. Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
+  - `on_start()`: Called when the service starts up. Use this to initialize state, reset counters, or perform startup tasks.
+  - `on_stop()`: Called when the service is shutting down. Use this to clean up resources or log final state.
   - `on_resume()`: Called when the system resumes from sleep. You can use this to reset any state.
-  - `on_suspend()`: Called when the system is about to suspend. You can use this to reset any state.
+  - `on_suspend()`: Called when the system is about to suspend. You can use this to save state or prepare for suspension.
+
+- Available Lua global tables:
+  - `sensors`: The current sensor values (e.g., `sensors["CPU Package"]`)
+  - `control_config`: Configuration for all controls by alias. Each entry has:
+    - `alias`: The control name
+    - `identifier`: Hardware identifier
+    - `platform`: The platform (e.g., "LHM")
+    - `step_up`: Maximum step up in % per update interval
+    - `step_down`: Maximum step down in % per update interval
+    - `min_start`: Minimum control value to start
+    - `min_stop`: Minimum control value to stop
+    - `zero_rpm`: Whether 0 RPM returns control to hardware
+    - `rpm_sensor`: The RPM sensor identifier
+    - `rpm_calibration`: Array of calibration points with `control` (%) and `rpm` (RPM) values
+    - `thermal_min_control`: Optional thermal minimum control value
+  - `sensor_config`: Configuration for all sensors by alias. Each entry has:
+    - `alias`: The sensor name
+    - `identifier`: Hardware identifier
+    - `platform`: The platform (e.g., "LHM")
 - Description of the functions in the Lua library `cooling_functions.lua`:
   - `cf.on_resume()`: A function that should be called when the system resumes from sleep.
   - `cf.apply_ema()`: A function that applies exponential moving average to smooth out sensor readings.

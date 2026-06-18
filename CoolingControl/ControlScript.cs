@@ -12,6 +12,8 @@ public class ControlScript : IDisposable
     private readonly ConfigHelper _config;
     private readonly Lua _lua;
     private readonly LuaFunction _calculate_controls;
+    private readonly LuaFunction? _on_start;
+    private readonly LuaFunction? _on_stop;
     private readonly LuaFunction? _on_suspend;
     private readonly LuaFunction? _on_resume;
 
@@ -33,10 +35,13 @@ public class ControlScript : IDisposable
         }
 
         _calculate_controls = _lua["calculate_controls"] as LuaFunction ?? throw new InvalidOperationException($"Lua script '{config.Config.ScriptPath}' must define a 'calculate_controls' function");
+        _on_start = _lua["on_start"] as LuaFunction;
+        _on_stop = _lua["on_stop"] as LuaFunction;
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
 
         _lua["control_config"] = _config.ControlConfigsByAlias;
+        _lua["sensor_config"] = _config.SensorConfigsByAlias;
 
         if (_lua["initialize"] is LuaFunction initialize)
         {
@@ -75,6 +80,24 @@ public class ControlScript : IDisposable
         {
             Log.Debug("Calling Lua on_resume function");
             _on_resume.Call();
+        }
+    }
+
+    public void OnStart()
+    {
+        if (_on_start != null)
+        {
+            Log.Debug("Calling Lua on_start function");
+            _on_start.Call();
+        }
+    }
+
+    public void OnStop()
+    {
+        if (_on_stop != null)
+        {
+            Log.Debug("Calling Lua on_stop function");
+            _on_stop.Call();
         }
     }
 

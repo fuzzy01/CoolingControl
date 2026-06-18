@@ -64,6 +64,7 @@ public class CoolingControlDaemon : BackgroundService
     {
         try
         {
+            _script.OnStart();
             bool isSuspended = false;
             var recentErrors = new Queue<DateTime>();
             while (!cancellationToken.IsCancellationRequested)
@@ -135,10 +136,12 @@ public class CoolingControlDaemon : BackgroundService
         }
         finally
         {
-            _hostApplicationLifetime.StopApplication();
+            _script.OnStop();
 
             // Set controls to default values on exit
             _monitor.ReleaseControls();
+
+            _hostApplicationLifetime.StopApplication();
 
             _monitor.Dispose();
             _script.Dispose();
