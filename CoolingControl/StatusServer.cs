@@ -82,6 +82,7 @@ public class StatusServer : IHostedService, IDisposable
     {
         if (_disposed) return;
         _cts?.Dispose();
+        _httpListener?.Close();
         _disposed = true;
     }
 
