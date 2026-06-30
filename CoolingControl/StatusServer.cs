@@ -35,7 +35,7 @@ public class StatusServer : IHostedService, IDisposable
 
         _cts = new CancellationTokenSource();
         _httpListener = new HttpListener();
-        var prefix = $"http://localhost:{_config.Config.StatusServerPort}/";
+        var prefix = $"http://{_config.Config.StatusServerBindAddress}:{_config.Config.StatusServerPort}/";
         _httpListener.Prefixes.Add(prefix);
 
         try

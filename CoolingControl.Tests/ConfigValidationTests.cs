@@ -128,4 +128,14 @@ public class ConfigValidationTests : IDisposable
         Assert.Contains("At least one control", ex.Message);
         Assert.Contains("LogLevel", ex.Message);
     }
+
+    [Fact]
+    public void Validate_EmptyBindAddress_Throws()
+    {
+        var config = ValidConfig();
+        config.StatusServerBindAddress = "";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("StatusServerBindAddress must not be empty", ex.Message);
+    }
 }

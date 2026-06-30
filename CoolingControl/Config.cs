@@ -14,6 +14,7 @@ public class Config
     public bool DisableLHMReleaseOnSuspend { get; set; } = false;
     public bool StatusServerEnabled { get; set; } = true;
     public int StatusServerPort { get; set; } = 19999;
+    public string StatusServerBindAddress { get; set; } = "localhost";
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }
