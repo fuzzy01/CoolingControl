@@ -8,10 +8,17 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
+using Prometheus;
 using Serilog;
 
 public class StatusServer : IHostedService, IDisposable
 {
+    private static readonly CollectorRegistry Registry = Metrics.NewCustomRegistry();
+    private static readonly Gauge SensorGauge = Metrics.WithCustomRegistry(Registry).CreateGauge(
+        "sensor_value", "Current sensor value", labelNames: ["name"]);
+    private static readonly Gauge ControlGauge = Metrics.WithCustomRegistry(Registry).CreateGauge(
+        "control_output", "Current control output (%)", labelNames: ["name"]);
+
     private readonly ConfigHelper _config;
     private readonly IStatusSnapshot _statusSnapshot;
     private HttpListener? _httpListener;
@@ -85,7 +92,7 @@ public class StatusServer : IHostedService, IDisposable
             try
             {
                 var context = _httpListener.GetContext();
-                _ = Task.Run(() => HandleRequest(context, cancellationToken), cancellationToken);
+        _ = Task.Run(() => HandleRequest(context, cancellationToken), cancellationToken);
             }
             catch (HttpListenerException) when (cancellationToken.IsCancellationRequested)
             {
@@ -98,7 +105,7 @@ public class StatusServer : IHostedService, IDisposable
         }
     }
 
-    private void HandleRequest(HttpListenerContext context, CancellationToken cancellationToken)
+    private async Task HandleRequest(HttpListenerContext context, CancellationToken cancellationToken)
     {
         try
         {
@@ -108,6 +115,10 @@ public class StatusServer : IHostedService, IDisposable
             if (path == "/api/status")
             {
                 HandleApiStatus(response);
+            }
+            else if (path == "/metrics")
+            {
+                await HandleMetricsAsync(response);
             }
             else if (path == "/" || path == "")
             {
@@ -160,8 +171,23 @@ public class StatusServer : IHostedService, IDisposable
         response.Close();
     }
 
-    private void HandleHtmlDashboard(HttpListenerResponse response)
+    private async Task HandleMetricsAsync(HttpListenerResponse response)
     {
+        var (sensors, controls, _) = _statusSnapshot.GetSnapshot();
+
+        foreach (var (name, value) in sensors)
+            if (value.HasValue)
+                SensorGauge.WithLabels(name).Set(value.Value);
+
+        foreach (var (name, value) in controls)
+            ControlGauge.WithLabels(name).Set(value);
+
+        response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
+        await Registry.CollectAndExportAsTextAsync(response.OutputStream);
+        response.Close();
+    }
+
+    private void HandleHtmlDashboard(HttpListenerResponse response)    {
         var html = GenerateHtml();
         var buffer = Encoding.UTF8.GetBytes(html);
 
