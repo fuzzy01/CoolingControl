@@ -13,7 +13,7 @@ public class Config
     public LHMConfigParameters LHMConfig { get; set; } = new LHMConfigParameters();
     public bool DisableLHMReleaseOnSuspend { get; set; } = false;
     public bool StatusServerEnabled { get; set; } = true;
-    public int StatusServerPort { get; set; } = 8888;
+    public int StatusServerPort { get; set; } = 19999;
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }
