@@ -147,7 +147,8 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `LogLevel`: Logging level (e.g., "Information", "Debug").
   - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
-  - `StatusServerPort`: Port for the HTTP status server dashboard (default: 8888).
+  - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
+  - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"0.0.0.0"` to allow access from other devices on the network.
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
@@ -306,14 +307,15 @@ end
 
 ### Monitoring Status (HTTP Dashboard)
 
-- The application runs a local HTTP status server on `localhost:8888` (configurable via `StatusServerPort` in `config.json`)
-- Open a browser and navigate to: `http://localhost:8888`
+- The application runs a local HTTP status server on `localhost:19999` (configurable via `StatusServerPort` and `StatusServerBindAddress` in `config.json`)
+- Open a browser and navigate to: `http://localhost:19999`
 - The dashboard displays:
   - **Sensors**: Real-time sensor values (temperatures, power, load, etc.) with aliases
   - **Controls**: Current control outputs (fan/pump speeds in RPM or %)
   - **Service Info**: Uptime, last update time, script path, update interval
 - The dashboard auto-refreshes every second
-- JSON API available at: `http://localhost:8888/api/status`
+- JSON API available at: `http://localhost:19999/api/status`
+- To allow access from other devices on the network, set `"StatusServerBindAddress": "0.0.0.0"` in `config.json`
 - Disable the server with `"StatusServerEnabled": false` in `config.json` if not needed
 
 ### Listing Sensors
