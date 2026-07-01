@@ -19,7 +19,9 @@ public static class PluginLoader
         if (!Directory.Exists(pluginsDir))
             return result;
 
-        foreach (var dllPath in Directory.EnumerateFiles(pluginsDir, "*.dll"))
+        Log.Information("Loading platform adapter plugins from {Dir}", Path.GetFullPath(pluginsDir));
+
+        foreach (var dllPath in Directory.EnumerateFiles(pluginsDir, "*.dll").Select(Path.GetFullPath))
         {
             try
             {
