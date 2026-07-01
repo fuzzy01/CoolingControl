@@ -19,6 +19,7 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
   - **Hysteresis**: Prevents rapid fan/pump speed changes, ensuring stability.
   - **PID control**: PID control for AIO fan speed based on coolant temperature.
   - **Global State**: Maintains state across control updates.
+- **Plugin Support**: Extend hardware access by dropping a DLL into the `plugins/` directory. Any class implementing `IPlatformAdapter` and decorated with `[PlatformAdapter("Name")]` is discovered automatically at startup. Individual sensors and controls can be assigned to different platforms via the `Platform` field in `config.json`.
 - **Service Management**: Runs as a Windows service or in console mode.
 - **Lifecycle events**: Service startup/shutdown and power events (suspend/resume) trigger Lua callbacks so the script can be notified and manage state.
 - **Resource Cleanup**: Proper releasing of hardware resources to BIOS control on service stop.
@@ -154,6 +155,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `Sensors`: List of sensors with their aliases and identifiers.
   - `Alias`: A user-friendly name for the sensor (e.g., "CPU Package").
   - `Identifier`: The hardware ID of the sensor (e.g., "/intelcpu/0/temperature/22").
+  - `Platform`: The platform adapter that provides this sensor or control. Defaults to `"LHM"` (Libre Hardware Monitor). Set to the name of a plugin adapter to route this entry to a plugin (see [Plugin Support](#plugin-support)).
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
   - `StepDown`: Maximum step down in % per update interval (default: 8%).
   - `ZeroRPM`: If true, when the control is set to 0 RPM the control is handed back to the hardware, it is needed to support GPU fans (default: false).
@@ -354,6 +356,57 @@ end
 - The calibration process will take some time, as it needs to measure the RPM of the fans and pumps at different speeds.
 - The calibration data includes the minimum start and stop RPM, as well as the RPM curve for each fan and pump.
 - The calibration data is used to convert RPM values to percentages for the fan control logic.
+
+## Plugin Support
+
+CoolingControl can load external hardware adapters from a `plugins/` subdirectory next to the executable. This allows adding sensor and control sources beyond Libre Hardware Monitor without modifying the application.
+
+### How it works
+
+At startup, every `.dll` in the `plugins/` folder is scanned. Any class that:
+
+1. Implements `IPlatformAdapter`
+2. Is decorated with `[PlatformAdapter("YourName")]`
+3. Has a constructor accepting `(ConfigHelper config)` or a parameterless constructor
+
+…is instantiated and registered under its declared platform name. Individual sensors and controls are routed to the correct adapter via the `Platform` field in `config.json`.
+
+### Writing a plugin
+
+Reference `CoolingControl.dll` from your class library project and implement the interface:
+
+```csharp
+using CoolingControl.Platform;
+
+[PlatformAdapter("MyAdapter")]
+public sealed class MyAdapter : IPlatformAdapter
+{
+    public Dictionary<string, float?> GetSensorValues(HashSet<string> sensorIdentifiers) { ... }
+    public Dictionary<string, float?> GetControlValues(HashSet<string> controlIdentifiers) { ... }
+    public Dictionary<string, bool> SetControls(Dictionary<string, float> controlValues) { ... }
+    public Dictionary<string, bool> ReleaseControls(HashSet<string> controlIdentifiers) { ... }
+    public void ListAllSensors() { ... }
+    public void Suspend() { ... }
+    public void Resume() { ... }
+    public void Dispose() { ... }
+}
+```
+
+Build to a DLL and copy it to the `plugins/` directory. Then reference its sensors and controls in `config.json` using `"Platform": "MyAdapter"`.
+
+### Using a plugin sensor in config.json
+
+```json
+{
+  "Sensors": [
+    { "Platform": "MyAdapter", "Identifier": "myadapter/temp1", "Alias": "Custom Temp" }
+  ]
+}
+```
+
+### Example: DummyPlugin
+
+`CoolingControl.DummyPlugin` is an in-tree reference implementation. It registers as `"Dummy"` and returns a static `50.0` for all sensor reads. Build the `CoolingControl.DummyPlugin` project to compile and automatically copy it to the host's `plugins/` directory.
 
 ## Configuration
 
