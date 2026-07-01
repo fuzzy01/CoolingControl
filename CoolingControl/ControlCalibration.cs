@@ -2,7 +2,6 @@ namespace CoolingControl;
 
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using CoolingControl.Platform.LHM;
 using CoolingControl.Platform;
 using System.Text.Json;
 
@@ -24,7 +23,7 @@ public class ControlCalibration : BackgroundService
     public ControlCalibration(ConfigHelper config, string control_alias, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
-        _calibrator = new DefaultRPMCalibrator(_config, new LHMAdapter(_config));
+        _calibrator = new DefaultRPMCalibrator(_config, PlatformAdapterFactory.Create(_config));
         _control_alias = control_alias;
         _hostApplicationLifetime = hostApplicationLifetime;
     }

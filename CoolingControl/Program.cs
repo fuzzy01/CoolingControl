@@ -1,6 +1,6 @@
 ﻿namespace CoolingControl;
 
-using CoolingControl.Platform.LHM;
+using CoolingControl.Platform;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -55,7 +55,7 @@ class Program
         if (cmd == "list-sensors")
         {
             Log.Information("Listing all available sensors");
-            using (var coolingControl = new LHMAdapter(config))
+            using (var coolingControl = PlatformAdapterFactory.Create(config))
             {
                 coolingControl.ListAllSensors();
             }

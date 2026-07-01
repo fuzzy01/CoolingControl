@@ -11,6 +11,7 @@ using Serilog;
 /// Manages the lifecycle of an underlying <see cref="Computer"/> instance
 /// to retrieve sensor values and control hardware components.
 /// </summary>
+[PlatformAdapter("LHM")]
 public class LHMAdapter : IPlatformAdapter, IDisposable
 {
     private readonly Computer _computer;

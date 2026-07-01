@@ -2,7 +2,6 @@ namespace CoolingControl;
 
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using CoolingControl.Platform.LHM;
 using CoolingControl.Platform;
 
 public record TempCalibrationParams(string ControlAlias, string SensorAlias, float MaxTemp);
@@ -23,7 +22,7 @@ public class TempCalibration : BackgroundService
     public TempCalibration(ConfigHelper config, TempCalibrationParams parameters, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
-        _calibrator = new DefaultRPMCalibrator(config, new LHMAdapter(config));
+        _calibrator = new DefaultRPMCalibrator(config, PlatformAdapterFactory.Create(config));
         _params = parameters;
         _hostApplicationLifetime = hostApplicationLifetime;
     }
