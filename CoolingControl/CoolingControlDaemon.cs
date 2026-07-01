@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Microsoft.Win32;
 using System.Collections.Concurrent;
-using CoolingControl.Platform.LHM;
 using CoolingControl.Platform;
 
 /// <summary>
@@ -27,7 +26,7 @@ public class CoolingControlDaemon : BackgroundService
     public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime, IStatusSnapshot statusSnapshot)
     {
         _config = config;
-        _monitor = new DefaultMonitorPlatform(_config, new LHMAdapter(_config));
+        _monitor = new DefaultMonitorPlatform(_config, PlatformAdapterFactory.Create(_config));
         _script = new ControlScript(_config);
         _CSVLogger = new CSVLogger(_config);
         _statusSnapshot = statusSnapshot;
