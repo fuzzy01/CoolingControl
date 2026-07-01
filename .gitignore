@@ -6,3 +6,7 @@ CoolingControl.Tests/bin
 CoolingControl.Tests/obj
 CoolingControl.Tests/publish
 CoolingControl.Tests/output
+CoolingControl.DummyPlugin/bin
+CoolingControl.DummyPlugin/obj
+CoolingControl.DummyPlugin/publish
+CoolingControl.DummyPlugin/output
