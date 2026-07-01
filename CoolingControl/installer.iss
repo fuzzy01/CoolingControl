@@ -1,6 +1,6 @@
 ; Inno Setup script for CoolingControl
 #define MyAppName "CoolingControl"
-#define MyAppVersion "1.1.7.0"
+#define MyAppVersion "1.1.8.0"
 #define MyAppPublisher "Fuzzy01 - Peter Laszlo"
 #define MyAppExeName "CoolingControl.exe"
 
