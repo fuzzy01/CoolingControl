@@ -85,6 +85,7 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
 
     public void ListAllSensors()
     {
+        Log.Information("Platform: LHM");
         var loggableSensorTypes = new HashSet<SensorType>
         {
             SensorType.Power,
