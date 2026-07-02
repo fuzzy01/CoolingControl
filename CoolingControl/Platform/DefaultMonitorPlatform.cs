@@ -60,6 +60,17 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
         return _adapter.GetSensorValues(_config.SensorIdentifiers).ToDictionary(kvp => _config.SensorConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
     }
 
+    public Dictionary<string, float?> GetControlRPMValues()
+    {
+        if (_config.ControlRPMSensorIdentifiers.Count == 0)
+            return new Dictionary<string, float?>();
+
+        return _adapter.GetSensorValues(_config.ControlRPMSensorIdentifiers)
+            .ToDictionary(
+                kvp => _config.ControlConfigsByRPMSensorIdentifier[kvp.Key].Alias,
+                kvp => kvp.Value);
+    }
+
     public Dictionary<string, float?> GetControlValues()
     {
         return _adapter.GetControlValues(_config.ControlIdentifiers).ToDictionary(kvp => _config.ControlConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);

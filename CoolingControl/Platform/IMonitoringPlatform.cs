@@ -14,6 +14,10 @@ public interface IMonitoringPlatform : IDisposable
     /// </returns>
     Dictionary<string, float?> GetSensorValues();
 
+    /// <summary>Returns current RPM values for controls that have an RPMSensor configured,
+    /// keyed by control alias.</summary>
+    Dictionary<string, float?> GetControlRPMValues();
+
     /// <summary>
     /// Retrieves the current values of all defined controls.
     /// </summary>

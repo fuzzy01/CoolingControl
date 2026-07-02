@@ -16,6 +16,8 @@ public class ConfigHelper
     private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
     private readonly Dictionary<string, ControlConfig> _controlConfigsByIdentifier;
     private readonly HashSet<string> _controlIdentifiers;
+    private readonly Dictionary<string, ControlConfig> _controlConfigsByRPMSensorIdentifier;
+    private readonly HashSet<string> _controlRPMSensorIdentifiers;
 
     public ConfigHelper(string configFilePath)
     {
@@ -31,6 +33,10 @@ public class ConfigHelper
         _controlConfigsByAlias = _config.Controls.ToDictionary(f => f.Alias, f => f);
         _controlConfigsByIdentifier = _config.Controls.ToDictionary(f => f.Identifier, f => f);
         _controlIdentifiers = _config.Controls.Select(f => f.Identifier).ToHashSet();
+        _controlConfigsByRPMSensorIdentifier = _config.Controls
+            .Where(c => !string.IsNullOrEmpty(c.RPMSensor))
+            .ToDictionary(c => c.RPMSensor, c => c);
+        _controlRPMSensorIdentifiers = _controlConfigsByRPMSensorIdentifier.Keys.ToHashSet();
     }
 
     public void SaveConfig()
@@ -113,6 +119,10 @@ public class ConfigHelper
     public Dictionary<string, ControlConfig> ControlConfigsByAlias => _controlConfigsByAlias;
 
     public HashSet<string> ControlIdentifiers => _controlIdentifiers;
+
+    public Dictionary<string, ControlConfig> ControlConfigsByRPMSensorIdentifier => _controlConfigsByRPMSensorIdentifier;
+
+    public HashSet<string> ControlRPMSensorIdentifiers => _controlRPMSensorIdentifiers;
 
     public Config Config => _config;
 

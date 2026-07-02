@@ -28,6 +28,14 @@ public static class PlatformAdapterFactory
 
         var sensorPlatformMap = config.Config.Sensors
             .ToDictionary(s => s.Identifier, s => s.Platform, StringComparer.OrdinalIgnoreCase);
+
+        // RPM sensor identifiers declared on controls need to be routable as sensors
+        foreach (var ctrl in config.Config.Controls)
+        {
+            if (!string.IsNullOrEmpty(ctrl.RPMSensor) && !sensorPlatformMap.ContainsKey(ctrl.RPMSensor))
+                sensorPlatformMap[ctrl.RPMSensor] = ctrl.Platform;
+        }
+
         var controlPlatformMap = config.Config.Controls
             .ToDictionary(c => c.Identifier, c => c.Platform, StringComparer.OrdinalIgnoreCase);
 

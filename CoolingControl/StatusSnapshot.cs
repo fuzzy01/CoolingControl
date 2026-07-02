@@ -5,8 +5,10 @@ using System.Collections.Generic;
 
 public interface IStatusSnapshot
 {
-    void Update(Dictionary<string, float?> sensors, Dictionary<string, float> controls, DateTime timestamp);
-    (Dictionary<string, float?> sensors, Dictionary<string, float> controls, DateTime timestamp) GetSnapshot();
+    void Update(Dictionary<string, float?> sensors, Dictionary<string, float> controls,
+                Dictionary<string, float?> controlRpm, DateTime timestamp);
+    (Dictionary<string, float?> sensors, Dictionary<string, float> controls,
+     Dictionary<string, float?> controlRpm, DateTime timestamp) GetSnapshot();
     (Dictionary<string, List<float?>> sensors, Dictionary<string, List<float>> controls) GetHistory();
     DateTime StartTime { get; }
 }
@@ -18,17 +20,20 @@ public class StatusSnapshot : IStatusSnapshot
     private readonly Dictionary<string, Queue<float>> _controlHistory = new();
     private Dictionary<string, float?> _lastSensorValues = new();
     private Dictionary<string, float> _lastControlValues = new();
+    private Dictionary<string, float?> _lastControlRpmValues = new();
     private DateTime _lastUpdateTime = DateTime.UtcNow;
     private const int MaxHistorySize = 300; // 5 minutes at 1 sample/sec
 
     public DateTime StartTime { get; } = DateTime.UtcNow;
 
-    public void Update(Dictionary<string, float?> sensors, Dictionary<string, float> controls, DateTime timestamp)
+    public void Update(Dictionary<string, float?> sensors, Dictionary<string, float> controls,
+                       Dictionary<string, float?> controlRpm, DateTime timestamp)
     {
         lock (_lockObj)
         {
             _lastSensorValues = new Dictionary<string, float?>(sensors);
             _lastControlValues = new Dictionary<string, float>(controls);
+            _lastControlRpmValues = new Dictionary<string, float?>(controlRpm);
             _lastUpdateTime = timestamp;
 
             // Append to history and prune to max size
@@ -52,13 +57,15 @@ public class StatusSnapshot : IStatusSnapshot
         }
     }
 
-    public (Dictionary<string, float?> sensors, Dictionary<string, float> controls, DateTime timestamp) GetSnapshot()
+    public (Dictionary<string, float?> sensors, Dictionary<string, float> controls,
+            Dictionary<string, float?> controlRpm, DateTime timestamp) GetSnapshot()
     {
         lock (_lockObj)
         {
             return (
                 new Dictionary<string, float?>(_lastSensorValues),
                 new Dictionary<string, float>(_lastControlValues),
+                new Dictionary<string, float?>(_lastControlRpmValues),
                 _lastUpdateTime
             );
         }

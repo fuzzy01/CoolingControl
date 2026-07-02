@@ -74,7 +74,7 @@ public class CoolingControlDaemon : BackgroundService
                     {
                         // Get sensor data
                         var sensorData = _monitor.GetSensorValues();
-
+    
                         // Execute script to get control settings
                         var settings = _script.CalculateControls(sensorData);
 
@@ -87,8 +87,12 @@ public class CoolingControlDaemon : BackgroundService
                         // Apply control settings
                         var res = _monitor.SetControls(settings);
 
-                        // Update status snapshot for HTTP server
-                        _statusSnapshot.Update(sensorData, settings, DateTime.UtcNow);
+                        if (_config.Config.StatusServerEnabled)
+                        {
+                            // Update status snapshot for HTTP server
+                            var controlRpmData = _monitor.GetControlRPMValues();
+                            _statusSnapshot.Update(sensorData, settings, controlRpmData, DateTime.UtcNow);
+                        }
                     }
                 }
                 catch (Exception ex)
