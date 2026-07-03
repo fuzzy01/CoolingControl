@@ -225,7 +225,7 @@ public class StatusServer : IHostedService, IDisposable
         .metric-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
         .metric-value { font-size: 18px; font-weight: 600; color: #333; font-variant-numeric: tabular-nums; }
         .metric-unit { font-size: 13px; color: #999; margin-left: 2px; }
-        .metric-rpm { font-size: 15px; color: #888; margin-left: 6px; }
+        .metric-rpm { font-size: 13px; color: #888; display: block; margin-top: 2px; }
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
         .chart-container { background: #fafafa; border-radius: 6px; padding: 15px; border: 1px solid #eee; position: relative; height: 250px; }
         .chart-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 10px; }
@@ -317,7 +317,7 @@ public class StatusServer : IHostedService, IDisposable
             const controlsHtml = Object.entries(data.controls).map(([alias, value]) => {
                 const valueStr = value.toFixed(1);
                 const rpm = data.controlRpm && data.controlRpm[alias] != null
-                    ? ' <span class="metric-rpm">\u00b7 ' + Math.round(data.controlRpm[alias]) + ' RPM</span>'
+                    ? '<span class="metric-rpm">' + Math.round(data.controlRpm[alias]) + ' RPM</span>'
                     : '';
                 return '<div class="metric"><div class="metric-label">' + escapeHtml(alias) + '</div><div class="metric-value">' + valueStr + '<span class="metric-unit">%</span>' + rpm + '</div></div>';
             }).join('');
