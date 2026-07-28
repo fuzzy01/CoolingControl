@@ -205,6 +205,17 @@ function M.aio_fan_pid_control(coolant_alias, coolant_temp, target_temp, min_fan
     return math.min(max_fan_rpm, math.max(min_fan_rpm, fan_rpm))
 end
 
+--- Clamps a value between a lower and upper bound.
+---
+--- @param x number: The value to be clamped.
+--- @param lo number: The lower bound.
+--- @param hi number: The upper bound.
+function M.clamp(x, lo, hi)
+    if x < lo then return lo end
+    if x > hi then return hi end
+    return x
+end
+
 --- Resets the state variables used for cooling control.
 --- This function is called when resuming the cooling control system.
 function M.on_resume()
