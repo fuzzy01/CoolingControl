@@ -172,7 +172,7 @@ class Program
         Console.WriteLine("  calibrate        Calibrate the specified control or all controls.");
         Console.WriteLine("  calibrate-temp   Find minimum fan % to keep a sensor below a target temperature. (Experimental feature)");
         Console.WriteLine("                   Usage: calibrate-temp <control_alias> <sensor_alias> <max_temp>");
-        Console.WriteLine("                   Example: calibrate-temp aio_fans cpu_temp 85");
+        Console.WriteLine("                   Example: calibrate-temp aio_fan cpu_temp 85");
         Console.WriteLine();
         Console.WriteLine("Service Management:");
         Console.WriteLine("  To manage the service, use sc.exe commands as an administrator:");

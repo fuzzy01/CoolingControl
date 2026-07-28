@@ -3,6 +3,8 @@ namespace CoolingControl;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using CoolingControl.Platform;
+using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics;
 
 public record TempCalibrationParams(string ControlAlias, string SensorAlias, float MaxTemp);
 
@@ -34,12 +36,22 @@ public class TempCalibration : BackgroundService
 
     private void Calibrate(CancellationToken cancellationToken)
     {
+        var cts = new CancellationTokenSource();
+        var tasks = new List<Task>();
+
         try
         {
             Log.Information("Temperature calibration: find minimum '{Control}' % to keep '{Sensor}' below {MaxTemp}°C",
                 _params.ControlAlias, _params.SensorAlias, _params.MaxTemp);
-            Log.Information("Apply maximum CPU load now, then press Enter to start...");
-            Console.ReadLine();
+            Log.Information("Applying maximum CPU load now ...");
+
+            int stressThreadCount = Environment.ProcessorCount;
+            for (int threadCount = 0; threadCount < stressThreadCount; threadCount++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // Start CPU-intensive task
+                tasks.Add(Task.Run(() => StressCpuLow(cts.Token), cancellationToken));
+            }
 
             Log.Information("Setting '{Control}' to 100%, waiting {Seconds}s for temperature to stabilize...",
                 _params.ControlAlias, WarmUpMs / 1000);
@@ -126,6 +138,17 @@ public class TempCalibration : BackgroundService
         }
         finally
         {
+            try
+            {
+                // Cancel all tasks
+                cts.Cancel();
+                Task.WaitAll([.. tasks], cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelling
+            }
+
             _calibrator.ReleaseControl(_params.ControlAlias);
             _calibrator.Dispose();
             _hostApplicationLifetime.StopApplication();
@@ -148,5 +171,51 @@ public class TempCalibration : BackgroundService
                 Task.Delay(TempSampleIntervalMs, cancellationToken).GetAwaiter().GetResult();
         }
         return sum / TempSampleCount;
+    }
+
+
+       private unsafe static void StressCpuLow(CancellationToken cancellationToken)
+    {
+        if (!Avx2.IsSupported)
+        {
+            throw new NotSupportedException("AVX2 not supported on this CPU.");
+        }
+
+        // Small arrays for integer operations
+        const int vectorSize = 64; // 8 integers per vector, 8 vectors
+        int[] a = new int[vectorSize];
+        int[] b = new int[vectorSize];
+        int[] result = new int[vectorSize];
+
+        // Initialize with simple values
+        for (int i = 0; i < vectorSize; i++)
+        {
+            a[i] = i;
+            b[i] = i + 1;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            fixed (int* pA = a, pB = b, pR = result)
+            {
+                for (int i = 0; i < vectorSize; i += 8) // Process 8 integers per vector
+                {
+                    if (i + 7 >= vectorSize) break;
+
+                    // Load vectors
+                    Vector256<int> va = Avx2.LoadVector256(pA + i);
+                    Vector256<int> vb = Avx2.LoadVector256(pB + i);
+
+                    // Simple integer addition
+                    Vector256<int> vResult = Avx2.Add(va, vb);
+
+                    // Store result
+                    Avx2.Store(pR + i, vResult);
+                }
+            }
+
+            // Prevent compiler optimization
+            if (result[0] == 0) Console.WriteLine("Never happens");
+        }
     }
 }
