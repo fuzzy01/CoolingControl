@@ -40,8 +40,8 @@ public class ControlScript : IDisposable
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
 
-        _lua["control_config"] = _config.ControlConfigsByAlias;
-        _lua["sensor_config"] = _config.SensorConfigsByAlias;
+        _lua["control_config"] = BuildLuaControlConfigTable();
+        _lua["sensor_config"] = BuildLuaSensorConfigTable();
 
         if (_lua["initialize"] is LuaFunction initialize)
         {
@@ -63,6 +63,61 @@ public class ControlScript : IDisposable
     private static void LuaLogError(string message)
     {
         Log.Error("[Lua] {Message}", message);
+    }
+
+    private LuaTable CreateLuaTable()
+    {
+        var result = _lua.DoString("return {}");
+        return (result.Length > 0 ? result[0] as LuaTable : null) ?? throw new InvalidOperationException("Failed to create Lua table");
+    }
+
+    private LuaTable BuildLuaSensorConfigTable()
+    {
+        var sensorConfigTable = CreateLuaTable();
+        foreach (var (alias, sensor) in _config.SensorConfigsByAlias)
+        {
+            var sensorTable = CreateLuaTable();
+            sensorTable["alias"] = sensor.Alias;
+            sensorTable["identifier"] = sensor.Identifier;
+            sensorTable["platform"] = sensor.Platform;
+            sensorConfigTable[alias] = sensorTable;
+        }
+
+        return sensorConfigTable;
+    }
+
+    private LuaTable BuildLuaControlConfigTable()
+    {
+        var controlConfigTable = CreateLuaTable();
+        foreach (var (alias, control) in _config.ControlConfigsByAlias)
+        {
+            var controlTable = CreateLuaTable();
+            controlTable["alias"] = control.Alias;
+            controlTable["identifier"] = control.Identifier;
+            controlTable["platform"] = control.Platform;
+            controlTable["step_up"] = control.StepUp;
+            controlTable["step_down"] = control.StepDown;
+            controlTable["min_start"] = control.MinStart;
+            controlTable["min_stop"] = control.MinStop;
+            controlTable["zero_rpm"] = control.ZeroRPM;
+            controlTable["rpm_sensor"] = control.RPMSensor;
+            controlTable["thermal_min_control"] = control.ThermalMinControl;
+
+            var rpmCalibration = CreateLuaTable();
+            for (int i = 0; i < control.RPMCalibration.Count; i++)
+            {
+                var point = control.RPMCalibration[i];
+                var pointTable = CreateLuaTable();
+                pointTable["control"] = point.Control;
+                pointTable["rpm"] = point.Rpm;
+                rpmCalibration[i + 1] = pointTable;
+            }
+
+            controlTable["rpm_calibration"] = rpmCalibration;
+            controlConfigTable[alias] = controlTable;
+        }
+
+        return controlConfigTable;
     }
 
     public void OnSuspend()
