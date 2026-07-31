@@ -11,7 +11,7 @@ using Serilog;
 /// Handles configuration, value tracking, and logic for step changes, minimum start/stop thresholds, and state management.
 /// </summary>
 /// <remarks>
-/// This abstract class implements <see cref="IMonitoringPlatform"/> and <see cref="IRPMCalibrator"/> interfaces,
+/// This abstract class implements <see cref="IMonitoringPlatform"/> interface,
 /// and provides common logic for managing sensors and controls, including value adjustment, state tracking,
 /// and control application. Platform-specific implementations must override the abstract methods to interact with hardware.
 /// </remarks>
@@ -162,7 +162,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
                     Log.Debug("Setting {Alias} to default control value due to ZeroRPM", alias);
                 }
 
-                adjustedControlValues[controlConfig.Identifier.ToString()] = adjustedControlValue;
+                adjustedControlValues[controlConfig.Identifier] = adjustedControlValue;
             }
         }
 
