@@ -59,6 +59,12 @@ public class CoolingControlDaemon : BackgroundService
         return Task.Run(() => ControlLoop(cancellationToken), cancellationToken);
     }
 
+    public override void Dispose()
+    {
+        SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+        base.Dispose();
+    }
+
     private void ControlLoop(CancellationToken cancellationToken)
     {
         try
