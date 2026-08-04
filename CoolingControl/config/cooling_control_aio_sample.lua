@@ -9,35 +9,49 @@ function on_resume()
 end
 
 -- Silent AIO fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
--- Temps are based on Intel 14th Gen i7-14700K with 360 AIO, adjust as needed for your CPU
+-- Temps are based on Intel Core Ultra 7 270k plus with 360 AIO, adjust as needed for your CPU
 local cpu_fan_curve =  { 
-                        { sensor_value = 60, control_value = 20 }, -- Dekstop idle / Light load
-                        { sensor_value = 75, control_value = 50 }, -- Normal load / Gaming
-                        { sensor_value = 95, control_value = 100 } } -- Critical temp, max RPM
-                        
+                        { sensor_value = 60, control_value = 20 }, -- Desktop idle / Light load
+                        { sensor_value = 75, control_value = 40 }, -- Normal load / Gaming
+                        { sensor_value = 80, control_value = 50 }, -- Stress test
+                        { sensor_value = 90, control_value = 50 }, -- Stress test
+                        { sensor_value = 100, control_value = 100 } } -- Critical temp, max RPM
+                                                
 -- Silent case fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
 local case_fan_cpu_curve =  { 
-                        { sensor_value = 60, control_value = 20 },  -- Desktop idle
-                        { sensor_value = 75, control_value = 50 }, -- Normal load / Gaming
-                        { sensor_value = 95, control_value = 100 } } -- Critical temp, max RPM
+                        { sensor_value = 60, control_value = 20 }, -- Desktop idle
+                        { sensor_value = 75, control_value = 40 }, -- Normal load / Gaming
+                        { sensor_value = 80, control_value = 50 }, -- Stress test
+                        { sensor_value = 90, control_value = 50 }, -- Stress test
+                        { sensor_value = 100, control_value = 100 } } -- Critical temp, max RPM
+
+-- Silent VRM fan curve based on RAM temperature, adjust as needed based on your system and how silent you want it to be
+local vrm_fan_cpu_curve =  { 
+                        { sensor_value = 45, control_value = 20 },  -- Desktop idle
+                        { sensor_value = 50, control_value = 50 }, --  High temp
+                        { sensor_value = 80, control_value = 100 } } -- Critical high temp, max RPM
 
 -- Silent case fan curve based on GPU temperature, adjust as needed based on your system and how silent you want it to be
 -- Temps are based on NVIDIA RTX 5070 Ti
 local case_fan_gpu_curve =  { 
                         { sensor_value = 45, control_value = 20 },  -- Desktop idle
                         { sensor_value = 55, control_value = 50 },  -- Gaming flat curve start
-                        { sensor_value = 68, control_value = 50 },  -- Gaming flat curve end
-                        { sensor_value = 76, control_value = 70 } } -- Stress test
+                        { sensor_value = 70, control_value = 50 },  -- Gaming flat curve end
+                        { sensor_value = 80, control_value = 70 },  -- Stress test
+                        { sensor_value = 100, control_value = 100 } } -- Critical temp, max RPM
                       
+local cpu_temp_critical = false
+
 function calculate_controls(sensors)
     local result = {}
 
+    -- AIO fan: Based on CPU temperature
     local cpu_temp = sensors["CPU Package"] or 50
 
     -- Apply moving average
     cpu_temp = cf.apply_ema("CPU Package", cpu_temp)
    
-    -- Calc AIO fan
+    -- Apply fan curve
     local aio_fan_speed = cf.apply_linear_curve(cpu_temp, cpu_fan_curve)
    
     -- Apply hysteresis based on CPU temperature
@@ -47,6 +61,14 @@ function calculate_controls(sensors)
 
     -- AIO pump speed is fixed
     local aio_pump_speed = 80
+    
+    if cpu_temp < 95 then
+        cpu_temp_critical = false
+    end
+    if cpu_temp >= 100 or cpu_temp_critical then
+        cpu_temp_critical = true
+        aio_pump_speed = 100
+    end
     
     table.insert(result, { alias = "AIO Pump", value = aio_pump_speed })
   
@@ -68,7 +90,7 @@ function calculate_controls(sensors)
     local case_fan_gpu_speed = cf.apply_linear_curve(gpu_temp, case_fan_gpu_curve)
 
     -- Apply hysteresis based on GPU temperature
-    case_fan_gpu_speed = cf.apply_hysteresis("Case Fan GPU", case_fan_gpu_speed, gpu_temp, 45, 83, 4, 2)
+    case_fan_gpu_speed = cf.apply_hysteresis("Case Fan GPU", case_fan_gpu_speed, gpu_temp, 45, 100, 4, 2)
 
     -- Mix the two curves, use gpu fan curve only if GPU fans are spinning, otherwise use only CPU fan curve.
     local gpu_fan_1_rpm = sensors["GPU Fan 1"] or 0
@@ -80,7 +102,25 @@ function calculate_controls(sensors)
         case_fan_speed = case_fan_cpu_speed
     end
     
-    table.insert(result, { alias = "Case Fan", value = case_fan_speed })
+    table.insert(result, { alias = "Front Fan", value = case_fan_speed })
+    table.insert(result, { alias = "Rear Fan", value = case_fan_speed })
   
+    -- VRM fan: Based on RAM temperature
+    local dimm1_temp = sensors["DIMM 1"] or 40
+    local dimm3_temp = sensors["DIMM 3"] or 40
+
+    -- Apply moving average
+    dimm1_temp = cf.apply_ema("DIMM 1", dimm1_temp)
+    dimm3_temp = cf.apply_ema("DIMM 3", dimm3_temp)
+    local dimm_temp = math.max(dimm1_temp, dimm3_temp)
+
+    -- Apply fan curve
+    local vrm_fan_speed = cf.apply_linear_curve(dimm_temp, vrm_fan_cpu_curve)
+
+    -- Apply hysteresis based on RAM temperature
+    vrm_fan_speed = cf.apply_hysteresis("VRM Fan", vrm_fan_speed, dimm_temp, 30, 100, 4, 2)
+
+    table.insert(result, { alias = "VRM Fan", value = vrm_fan_speed })
+
     return result
 end

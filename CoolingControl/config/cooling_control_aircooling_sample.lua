@@ -10,7 +10,7 @@ end
 
 -- Silent CPU fan curve based on CPU temperature, adjust as needed based on your system and how silent you want it to be
 local cpu_fan_curve =  { 
-                        { sensor_value = 60, control_value = 20 }, -- Dekstop idle / Light load
+                        { sensor_value = 60, control_value = 20 }, -- Desktop idle / Light load
                         { sensor_value = 75, control_value = 50 }, -- Normal load / Gaming
                         { sensor_value = 95, control_value = 100 } } -- Critical temp, max RPM
                   
