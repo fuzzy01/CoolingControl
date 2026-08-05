@@ -68,7 +68,7 @@ public class ConfigHelper
         if (config.Controls.Count == 0)
             errors.Add("At least one control must be defined in Controls.");
 
-        if (string.IsNullOrWhiteSpace(config.StatusServerBindAddress))
+        if (config.StatusServerEnabled && string.IsNullOrWhiteSpace(config.StatusServerBindAddress))
             errors.Add("StatusServerBindAddress must not be empty.");
 
         var controlAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
