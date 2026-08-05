@@ -177,12 +177,6 @@ public class ConfigHelper
                     break;
                 }
             }
-
-            if (i == rpmCalibration.Count - 1)
-            {
-                Log.Error("Calibration data is not sorted for {Alias}", alias);
-                return null;
-            }
         }
 
         return value;
