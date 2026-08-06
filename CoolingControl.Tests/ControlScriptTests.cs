@@ -99,6 +99,44 @@ public class ControlScriptTests : IDisposable
     }
 
     [Fact]
+    public void OnPowerSourceChanged_PassesAcPowerStateToLua()
+    {
+        using var script = CreateScript(
+            """
+            local power_state = -1
+
+            function on_power_source_changed(is_ac_powered)
+                power_state = is_ac_powered and 1 or 0
+            end
+
+            function calculate_controls(sensors)
+                return { { alias = "Fan", value = power_state } }
+            end
+            """);
+
+        Assert.Equal(-1f, script.CalculateControls([])["Fan"]);
+
+        script.OnPowerSourceChanged(true);
+        Assert.Equal(1f, script.CalculateControls([])["Fan"]);
+
+        script.OnPowerSourceChanged(false);
+        Assert.Equal(0f, script.CalculateControls([])["Fan"]);
+    }
+
+    [Fact]
+    public void OnPowerSourceChanged_CallbackNotDefined_DoesNotThrow()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return { { alias = "Fan", value = 0 } }
+            end
+            """);
+
+        script.OnPowerSourceChanged(true);
+    }
+
+    [Fact]
     public void CalculateControls_InvalidEntries_AreIgnoredAndLastDuplicateWins()
     {
         using var script = CreateScript(

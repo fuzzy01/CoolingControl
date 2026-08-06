@@ -16,6 +16,7 @@ public class ControlScript : IDisposable
     private readonly LuaFunction? _on_stop;
     private readonly LuaFunction? _on_suspend;
     private readonly LuaFunction? _on_resume;
+    private readonly LuaFunction? _on_power_source_changed;
 
     public ControlScript(ConfigHelper config)
     {
@@ -39,6 +40,7 @@ public class ControlScript : IDisposable
         _on_stop = _lua["on_stop"] as LuaFunction;
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
+        _on_power_source_changed = _lua["on_power_source_changed"] as LuaFunction;
 
         _lua["control_config"] = BuildLuaControlConfigTable();
         _lua["sensor_config"] = BuildLuaSensorConfigTable();
@@ -135,6 +137,15 @@ public class ControlScript : IDisposable
         {
             Log.Debug("Calling Lua on_resume function");
             _on_resume.Call();
+        }
+    }
+
+    public void OnPowerSourceChanged(bool isAcPowered)
+    {
+        if (_on_power_source_changed != null)
+        {
+            Log.Debug("Calling Lua on_power_source_changed function with isAcPowered={IsAcPowered}", isAcPowered);
+            _on_power_source_changed.Call(isAcPowered);
         }
     }
 

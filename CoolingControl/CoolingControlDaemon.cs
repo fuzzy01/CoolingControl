@@ -20,7 +20,7 @@ public class CoolingControlDaemon : BackgroundService
     private readonly IStatusSnapshot _statusSnapshot;
     private readonly int _intervalMs;
     // private readonly CancellationTokenSource _cancellationTokenSource;
-    private readonly BlockingCollection<PowerModes> _messageQueue;
+    private readonly BlockingCollection<PowerEvent> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
     public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime, IStatusSnapshot statusSnapshot)
@@ -31,7 +31,7 @@ public class CoolingControlDaemon : BackgroundService
         _CSVLogger = new CSVLogger(_config);
         _statusSnapshot = statusSnapshot;
         _intervalMs = _config.Config.UpdateIntervalMs;
-        _messageQueue = new BlockingCollection<PowerModes>();
+        _messageQueue = new BlockingCollection<PowerEvent>();
         SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
         _hostApplicationLifetime = hostApplicationLifetime;
     }
@@ -41,15 +41,24 @@ public class CoolingControlDaemon : BackgroundService
         switch (e.Mode)
         {
             case PowerModes.Suspend:
-                _messageQueue.Add(PowerModes.Suspend);
+                _messageQueue.Add(new PowerEvent(PowerModes.Suspend));
                 Log.Debug("PowerEvent: System is suspending");
                 break;
             case PowerModes.Resume:
-                _messageQueue.Add(PowerModes.Resume);
+                _messageQueue.Add(new PowerEvent(PowerModes.Resume));
                 Log.Debug("PowerEvent: System is resuming");
                 break;
             case PowerModes.StatusChange:
-                Log.Debug("PowerEvent: Power status changed");
+                var isAcPowered = PowerSourceStatus.GetIsAcPowered();
+                if (isAcPowered.HasValue)
+                {
+                    _messageQueue.Add(new PowerEvent(PowerModes.StatusChange, isAcPowered.Value));
+                    Log.Information("PowerEvent: Power source changed to {PowerSource}", isAcPowered.Value ? "AC" : "battery");
+                }
+                else
+                {
+                    Log.Debug("PowerEvent: Power status changed, but its source is unavailable");
+                }
                 break;
         }
     }
@@ -116,9 +125,9 @@ public class CoolingControlDaemon : BackgroundService
                     }
                 }
 
-                if (_messageQueue.TryTake(out var powerMode, _intervalMs, cancellationToken))
+                if (_messageQueue.TryTake(out var powerEvent, _intervalMs, cancellationToken))
                 {
-                    switch (powerMode)
+                    switch (powerEvent.Mode)
                     {
                         case PowerModes.Suspend:
                             _script.OnSuspend();
@@ -129,6 +138,9 @@ public class CoolingControlDaemon : BackgroundService
                             _monitor.Resume();
                             _script.OnResume();
                             isSuspended = false;
+                            break;
+                        case PowerModes.StatusChange:
+                            _script.OnPowerSourceChanged(powerEvent.IsAcPowered!.Value);
                             break;
                     }
                 }
@@ -158,4 +170,6 @@ public class CoolingControlDaemon : BackgroundService
 
         Log.Information("CoolingControl service stopped");
     }
+
+    private readonly record struct PowerEvent(PowerModes Mode, bool? IsAcPowered = null);
 }

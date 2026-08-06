@@ -250,6 +250,7 @@ end
   - `on_stop()`: Called when the service is shutting down. Use this to clean up resources or log final state.
   - `on_resume()`: Called when the system resumes from sleep. You can use this to reset any state.
   - `on_suspend()`: Called when the system is about to suspend. You can use this to save state or prepare for suspension.
+  - `on_power_source_changed(is_ac_powered)`: Called when Windows detects a transition between AC and battery power. `is_ac_powered` is `true` on AC power and `false` on battery power.
 
 - Available Lua global tables:
   - `sensors`: The current sensor values (e.g., `sensors["CPU Package"]`)
