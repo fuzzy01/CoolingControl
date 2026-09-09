@@ -26,13 +26,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 ;Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion
+Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "config\*"
 Source: "publish\config\config.json"; DestDir: "{app}\config"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "publish\config\cooling_control.lua"; DestDir: "{app}\config"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "publish\config\config_sample.json"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "publish\config\cooling_functions.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "publish\config\cooling_control_aio_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
+Source: "publish\config\cooling_control_aio_with_sensor_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "publish\config\cooling_control_aircooling_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
+Source: "publish\config\cooling_control_cfg_access_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
+Source: "publish\config\cooling_control_gpu_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 
 [Icons]
 ;Name: "{group}\{#MyAppName} Console"; Filename: "{app}\{#MyAppExeName}"; Parameters: "console"; WorkingDir: "{app}"
