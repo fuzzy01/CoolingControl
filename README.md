@@ -19,7 +19,7 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
   - **Hysteresis**: Prevents rapid fan/pump speed changes, ensuring stability.
   - **PID control**: PID control for AIO fan speed based on coolant temperature.
   - **Global State**: Maintains state across control updates.
-- **Plugin Support**: Extend hardware access by dropping a DLL into the `plugins/` directory. Any class implementing `IPlatformAdapter` and decorated with `[PlatformAdapter("Name")]` is discovered automatically at startup. Individual sensors and controls can be assigned to different platforms via the `Platform` field in `config.json`.
+- **Plugin Support**: Extend hardware access by dropping a plugin's DLL (and its dependencies) into its own subdirectory under `plugins/`. Any class implementing `IPlatformAdapter` and decorated with `[PlatformAdapter("Name")]` is discovered automatically at startup. Individual sensors and controls can be assigned to different platforms via the `Platform` field in `config.json`.
 - **Service Management**: Runs as a Windows service or in console mode.
 - **Lifecycle events**: Service startup/shutdown and power events (suspend/resume) trigger Lua callbacks so the script can be notified and manage state.
 - **Resource Cleanup**: Proper releasing of hardware resources to BIOS control on service stop.
@@ -364,7 +364,9 @@ CoolingControl can load external hardware adapters from a `plugins/` subdirector
 
 ### How it works
 
-At startup, every `.dll` in the `plugins/` folder is scanned. Any class that:
+Each plugin lives in its own subdirectory under `plugins/`, named to match its main DLL, e.g. `plugins/MyAdapter/MyAdapter.dll` plus any of its private dependency DLLs. Keeping every plugin in its own folder isolates its dependencies from other plugins, so two plugins can each ship a different version of the same dependency without conflicts.
+
+At startup, every subdirectory of `plugins/` is scanned for a DLL named after that subdirectory (e.g. `plugins/MyAdapter/MyAdapter.dll`); a subdirectory without a matching DLL is skipped with a warning. Any class in that DLL that:
 
 1. Implements `IPlatformAdapter`
 2. Is decorated with `[PlatformAdapter("YourName")]`
@@ -393,7 +395,7 @@ public sealed class MyAdapter : IPlatformAdapter
 }
 ```
 
-Build to a DLL and copy it to the `plugins/` directory. Then reference its sensors and controls in `config.json` using `"Platform": "MyAdapter"`.
+Build to a DLL and copy your plugin's own output (the DLL plus any of its private dependency DLLs) into its own subdirectory named to match the DLL, e.g. `plugins/MyAdapter/MyAdapter.dll`. Then reference its sensors and controls in `config.json` using `"Platform": "MyAdapter"`.
 
 ### Using a plugin sensor in config.json
 
@@ -407,7 +409,7 @@ Build to a DLL and copy it to the `plugins/` directory. Then reference its senso
 
 ### Example: DummyPlugin
 
-`CoolingControl.DummyPlugin` is an in-tree reference implementation. It registers as `"Dummy"` and returns a static `50.0` for all sensor reads. Build the `CoolingControl.DummyPlugin` project to compile and automatically copy it to the host's `plugins/` directory.
+`CoolingControl.DummyPlugin` is an in-tree reference implementation. It registers as `"Dummy"` and returns a static `50.0` for all sensor reads. Build the `CoolingControl.DummyPlugin` project to compile and automatically copy it to the host's `plugins/CoolingControl.DummyPlugin/` directory.
 
 ### Example: DS18B20Plugin
 

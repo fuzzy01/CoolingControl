@@ -10,13 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CoolingControl\CoolingControl.csproj" />
+    <ProjectReference Include="..\CoolingControl\CoolingControl.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
   </ItemGroup>
 
-  <Target Name="CopyToHostPlugins" AfterTargets="Build">
-    <MakeDir Directories="$(MSBuildProjectDirectory)/../CoolingControl/bin/Debug/net8.0-windows/win-x64/plugins" />
-    <Copy SourceFiles="$(TargetPath)"
-          DestinationFolder="$(MSBuildProjectDirectory)/../CoolingControl/bin/Debug/net8.0-windows/win-x64/plugins" />
-  </Target>
+  <Import Project="..\CoolingControl.PluginBuild.targets" />
 
 </Project>

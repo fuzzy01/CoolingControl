@@ -20,21 +20,6 @@
     </ProjectReference>
   </ItemGroup>
 
-  <!-- Condition guards against the outer (cross-targeting) build invocation, where
-       $(TargetFramework) is empty; the target only needs to run per inner (per-TFM) build. -->
-  <Target Name="CopyToHostPlugins" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
-    <PropertyGroup>
-      <HostPluginsDir>$(MSBuildProjectDirectory)/../CoolingControl/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/plugins</HostPluginsDir>
-    </PropertyGroup>
-    <MakeDir Directories="$(HostPluginsDir)" />
-    <Copy SourceFiles="$(TargetPath)"
-          DestinationFolder="$(HostPluginsDir)" />
-    <ItemGroup>
-      <PortsRuntimeFiles Include="$(TargetDir)System.IO.Ports*.dll" />
-    </ItemGroup>
-    <Copy SourceFiles="@(PortsRuntimeFiles)"
-          DestinationFolder="$(HostPluginsDir)"
-          Condition="'@(PortsRuntimeFiles)' != ''" />
-  </Target>
+  <Import Project="..\CoolingControl.PluginBuild.targets" />
 
 </Project>
