@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Shared by every CoolingControl.*Plugin project. Copies the plugin's full publish-equivalent output
+    into its own subdirectory under the host's plugins/ folder (plugins/<ProjectName>/...), keeping each
+    plugin's private dependency DLLs isolated from every other plugin instead of dumping them all into
+    one shared plugins/ folder where same-named-but-different-version dependencies would collide.
+
+    Depends on ComputeResolvedFilesToPublishList (normally only evaluated during `dotnet publish`) rather
+    than just globbing $(TargetDir): RID-specific NuGet assets (e.g. System.IO.Ports' Windows-specific
+    implementation, which lives under a "runtimes/win/lib/..." package asset) are never materialized into
+    $(TargetDir) by a plain Build, only resolved as part of the publish file list. Depending on this
+    target and copying @(ResolvedFileToPublish) pulls in that fully-resolved, flattened set of files
+    (main DLL, pdb, deps.json, runtimeconfig.json, and RID-specific dependencies alike) without requiring
+    an actual `dotnet publish` of the plugin.
+
+    Condition guards against the outer (cross-targeting) build invocation, where $(TargetFramework) is
+    empty; the target only needs to run per inner (per-TFM) build.
+  -->
+  <Target Name="CopyToHostPlugins" AfterTargets="Build" DependsOnTargets="ComputeResolvedFilesToPublishList" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <HostPluginDir>$(MSBuildProjectDirectory)/../CoolingControl/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/plugins/$(MSBuildProjectName)</HostPluginDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(HostPluginDir)" />
+    <Copy SourceFiles="@(ResolvedFileToPublish)"
+          DestinationFiles="@(ResolvedFileToPublish->'$(HostPluginDir)/%(DestinationSubDirectory)%(Filename)%(Extension)')" />
+  </Target>
+
+</Project>
