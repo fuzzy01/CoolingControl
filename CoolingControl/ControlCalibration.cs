@@ -104,7 +104,6 @@ public class ControlCalibration : BackgroundService
         for (int i = 0; i < StopSampleCount; i++)
         {
             Task.Delay(StopSampleIntervalMs, cancellationToken).Wait(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
             
             var rpm = _calibrator.GetRPMSensorValue(control_alias);
             if (!rpm.HasValue)
@@ -114,7 +113,6 @@ public class ControlCalibration : BackgroundService
         }
 
         Task.Delay(StopStabilizeMs, cancellationToken).Wait(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
 
         var finalRpm = _calibrator.GetRPMSensorValue(control_alias);
         if (!finalRpm.HasValue || finalRpm > 0)
@@ -138,7 +136,6 @@ public class ControlCalibration : BackgroundService
             Log.Information("Control {Alias} set to {Value}%", control_alias, control_value);
 
             Task.Delay(StartStabilizeMs, cancellationToken).Wait(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
 
             var rpm = _calibrator.GetRPMSensorValue(control_alias);
             if (!rpm.HasValue)
@@ -153,7 +150,6 @@ public class ControlCalibration : BackgroundService
                     return null;
 
                 Task.Delay(2 * RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
 
                 var stableRpm = _calibrator.GetRPMSensorValue(control_alias);
                 if (!stableRpm.HasValue)
@@ -191,7 +187,6 @@ public class ControlCalibration : BackgroundService
             for (int i = 0; i < StopSampleCount; i++)
             {
                 Task.Delay(StopSampleIntervalMs, cancellationToken).Wait(cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
                 
                 rpm = _calibrator.GetRPMSensorValue(control_alias);
                 if (!rpm.HasValue)
@@ -223,7 +218,6 @@ public class ControlCalibration : BackgroundService
             Log.Information("Control {Alias} set to {Value}%", control_alias, control_value);
 
             Task.Delay(control_value == 100 ? 3 * RPMStabilizeMs : RPMStabilizeMs, cancellationToken).Wait(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
 
             // Make multiple measurments
             float avg_rpm = 0f;
