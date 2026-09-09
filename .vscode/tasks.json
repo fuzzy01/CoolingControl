@@ -83,7 +83,7 @@
         "kind": "build",
         "isDefault": false
       },
-      "dependsOn": ["Clean CoolingControl"],
+      "dependsOn": ["Build CoolingControl Release", "Clean CoolingControl"],
       "problemMatcher": "$msCompile",
       "presentation": {
         "reveal": "always"
@@ -95,7 +95,6 @@
       "command": "dotnet",
       "args": [
         "build",
-        "CoolingControl/CoolingControl.csproj",
         "-c",
         "Release"
       ],
@@ -114,7 +113,6 @@
       "command": "dotnet",
       "args": [
         "build",
-        "CoolingControl/CoolingControl.csproj",
         "-c",
         "Debug"
       ],
@@ -130,13 +128,7 @@
     {
       "label": "Clean CoolingControl",
       "type": "shell",
-      "command": "dotnet",
-      "args": [
-        "clean",
-        "CoolingControl/CoolingControl.csproj",
-        "-c",
-        "Release"
-      ],
+      "command": "dotnet clean -c Release; dotnet clean -c Debug",
       "group": {
         "kind": "build",
         "isDefault": false
