@@ -10,3 +10,7 @@ CoolingControl.DummyPlugin/bin
 CoolingControl.DummyPlugin/obj
 CoolingControl.DummyPlugin/publish
 CoolingControl.DummyPlugin/output
+CoolingControl.DS18B20Plugin/bin
+CoolingControl.DS18B20Plugin/obj
+CoolingControl.DS18B20Plugin/publish
+CoolingControl.DS18B20Plugin/output

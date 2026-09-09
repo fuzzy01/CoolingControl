@@ -409,6 +409,31 @@ Build to a DLL and copy it to the `plugins/` directory. Then reference its senso
 
 `CoolingControl.DummyPlugin` is an in-tree reference implementation. It registers as `"Dummy"` and returns a static `50.0` for all sensor reads. Build the `CoolingControl.DummyPlugin` project to compile and automatically copy it to the host's `plugins/` directory.
 
+### Example: DS18B20Plugin
+
+`CoolingControl.DS18B20Plugin` reads DS18B20 temperature sensors connected through a USB-to-serial adapter that continuously streams ASCII readings at 9600 baud, 8 data bits, no parity, 1 stop bit (8N1), one reading per line, e.g.:
+
+```
+t1=+28.70
+t2=+29.20
+```
+
+It registers as `"DS18B20"` and is sensor-only (no controls). Sensor identifiers must use the form `<COMPORT>/<tag>`, where `<tag>` is the sensor label reported by the adapter (`t1`, `t2`, …):
+
+```json
+{
+  "Sensors": [
+    { "Platform": "DS18B20", "Identifier": "COM5/t1", "Alias": "Coolant In" },
+    { "Platform": "DS18B20", "Identifier": "COM5/t2", "Alias": "Coolant Out" }
+  ]
+}
+```
+
+The plugin opens one serial port per distinct COM port referenced in `config.json`, and automatically reconnects if the adapter is unplugged or the port fails to open. A reading is considered stale (returned as `null`) if none has been received for more than 5 seconds. Notes:
+
+- Windows can occasionally reassign the COM port number (e.g. if the adapter is moved to a different USB port). If `config.json` stops matching, check Device Manager → Ports (COM & LPT) for the adapter's current port, and optionally pin it via Properties → Port Settings → Advanced → COM Port Number.
+- Which physical DS18B20 sensor maps to `t1` vs `t2` is decided by the adapter firmware's 1-Wire discovery order, not by this plugin.
+
 ## Configuration
 
 ### config.json

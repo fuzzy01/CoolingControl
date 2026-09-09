@@ -2,4 +2,5 @@
   <Project Path="CoolingControl.Tests/CoolingControl.Tests.csproj" />
   <Project Path="CoolingControl/CoolingControl.csproj" />
   <Project Path="CoolingControl.DummyPlugin/CoolingControl.DummyPlugin.csproj" />
+  <Project Path="CoolingControl.DS18B20Plugin/CoolingControl.DS18B20Plugin.csproj" />
 </Solution>

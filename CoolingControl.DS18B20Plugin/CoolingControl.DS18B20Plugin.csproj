@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoolingControl\CoolingControl.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Condition guards against the outer (cross-targeting) build invocation, where
+       $(TargetFramework) is empty; the target only needs to run per inner (per-TFM) build. -->
+  <Target Name="CopyToHostPlugins" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <HostPluginsDir>$(MSBuildProjectDirectory)/../CoolingControl/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/plugins</HostPluginsDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(HostPluginsDir)" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(HostPluginsDir)" />
+    <ItemGroup>
+      <PortsRuntimeFiles Include="$(TargetDir)System.IO.Ports*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PortsRuntimeFiles)"
+          DestinationFolder="$(HostPluginsDir)"
+          Condition="'@(PortsRuntimeFiles)' != ''" />
+  </Target>
+
+</Project>
