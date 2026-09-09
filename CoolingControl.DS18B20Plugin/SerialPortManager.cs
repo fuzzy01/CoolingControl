@@ -12,7 +12,7 @@ using Serilog;
 public sealed class SerialPortManager : IDisposable
 {
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(5);
-    private const int ReadTimeoutMs = 500;
+    private const int ReadTimeoutMs = 2000;
     private const int BaudRate = 9600;
 
     private readonly string _portName;
@@ -112,7 +112,7 @@ public sealed class SerialPortManager : IDisposable
             _port = new SerialPort(_portName, BaudRate, Parity.None, 8, StopBits.One)
             {
                 ReadTimeout = ReadTimeoutMs,
-                NewLine = "\n"
+                NewLine = "\n\r"
             };
             _port.Open();
             Log.Information("DS18B20 [{Port}]: opened at {Baud} 8N1", _portName, BaudRate);
