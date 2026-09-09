@@ -1,11 +1,10 @@
 namespace CoolingControl.Platform;
 
-using CoolingControl.Platform.LHM;
 using Serilog;
 
 /// <summary>
-/// Assembles a <see cref="CompositePlatformAdapter"/> from the built-in LHM adapter and any
-/// plugins found in the <c>plugins/</c> directory next to the executable.
+/// Assembles a <see cref="CompositePlatformAdapter"/> from all plugins found in the
+/// <c>plugins/</c> directory next to the executable.
 /// </summary>
 public static class PlatformAdapterFactory
 {
@@ -13,15 +12,12 @@ public static class PlatformAdapterFactory
 
     public static IPlatformAdapter Create(ConfigHelper config)
     {
-        var adapters = new Dictionary<string, IPlatformAdapter>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["LHM"] = new LHMAdapter(config)
-        };
+        var adapters = new Dictionary<string, IPlatformAdapter>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (name, adapter) in PluginLoader.LoadAdapters(PluginsDir, config))
         {
             if (adapters.ContainsKey(name))
-                Log.Warning("Plugin platform name '{Name}' conflicts with a built-in adapter — skipping", name);
+                Log.Warning("Plugin platform name '{Name}' conflicts with an already-registered adapter — skipping", name);
             else
                 adapters[name] = adapter;
         }

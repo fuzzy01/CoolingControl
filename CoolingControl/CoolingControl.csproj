@@ -36,10 +36,6 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\LibreHardwareMonitor\LibreHardwareMonitorLib\LibreHardwareMonitorLib.csproj" />
-  </ItemGroup>
-
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
     <None Include="config/config.json" CopyToOutputDirectory="Always" Link="config/config.json" />
     <None Include="config/cooling_control.lua" CopyToOutputDirectory="Always" Link="config/cooling_control.lua" />

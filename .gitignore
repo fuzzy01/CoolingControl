@@ -14,3 +14,7 @@ CoolingControl.DS18B20Plugin/bin
 CoolingControl.DS18B20Plugin/obj
 CoolingControl.DS18B20Plugin/publish
 CoolingControl.DS18B20Plugin/output
+CoolingControl.LHMPlugin/bin
+CoolingControl.LHMPlugin/obj
+CoolingControl.LHMPlugin/publish
+CoolingControl.LHMPlugin/output

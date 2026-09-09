@@ -1,6 +1,5 @@
 namespace CoolingControl.Platform;
 
-using LibreHardwareMonitor.Hardware;
 using System;
 using System.Collections.Generic;
 using System.Linq;
