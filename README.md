@@ -270,15 +270,16 @@ end
     - `alias`: The sensor name
     - `identifier`: Hardware identifier
     - `platform`: The platform (e.g., "LHM")
+- Available Lua global functions (registered by the host, not by `cooling_functions.lua`):
+  - `log_debug(message)`: Logs a debug message to the log file.
+  - `log_information(message)`: Logs an information message to the log file.
+  - `log_error(message)`: Logs an error message to the log file.
 - Description of the functions in the Lua library `cooling_functions.lua`:
   - `cf.on_resume()`: A function that should be called when the system resumes from sleep.
   - `cf.apply_ema()`: A function that applies exponential moving average to smooth out sensor readings.
   - `cf.apply_linear_curve()`: A function that applies a linear curve to map sensor values to fan/pump speeds based on the defined curve.
   - `cf.apply_hysteresis()`: A function that applies hysteresis logic to prevent rapid changes in fan/pump speeds based on sensor fluctuations.
   - `cf.aio_fan_pid_control()`: A function that calculates the fan speed based on the coolant temperature, using PID control. Limits for fan speeds should be set according to noise preferences and AIO size.
-  - `cf.log_debug()`: A function that logs debug messages to the log file. You can use this to log any information you need for debugging purposes.
-  - `cf.log_info()`: A function that logs information messages to the log file. You can use this to log any information you need for debugging purposes.
-  - `cf.log_error()`: A function that logs error messages to the log file. You can use this to log any information you need for debugging purposes.
 
 ## Usage
 
