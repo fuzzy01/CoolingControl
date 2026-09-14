@@ -102,8 +102,11 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
             float adjustedControlValue = controlValue;
 
+            // Unavailable at init/resume (e.g. GPU fan not yet claimed) — treat as stopped at 0%.
+            float previousControlValue = _previousControlValues.GetValueOrDefault(alias);
+            bool isCurrentlyRunning = _controlStates.GetValueOrDefault(alias);
+
             // Apply step up / step down logic
-            float previousControlValue = _previousControlValues[alias];
             if (adjustedControlValue > previousControlValue)
             {
                 float maxIncrease = controlConfig.StepUp;
@@ -126,8 +129,6 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
             }
 
             // Apply min stop / min start logic
-            bool isCurrentlyRunning = _controlStates[alias];
-
             if (isCurrentlyRunning)
             {
                 // If running, ensure speed is above min stop
@@ -148,7 +149,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
             }
 
             // Skip setting control if the value is the same as the previous one
-            if (force || adjustedControlValue != _previousControlValues[alias])
+            if (force || adjustedControlValue != previousControlValue)
             {
                 // Update control state
                 _controlStates[alias] = adjustedControlValue != 0f;

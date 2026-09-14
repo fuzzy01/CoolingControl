@@ -21,7 +21,7 @@ public class DefaultMonitorPlatformTests : IDisposable
     public void Dispose() => Directory.Delete(_tempDir, recursive: true);
 
     private (ConfigHelper config, FakeAdapter adapter, DefaultMonitorPlatform platform) BuildPlatform(
-        float initialValue, ControlConfig ctrl)
+        float? initialValue, ControlConfig ctrl)
     {
         var config = new Config
         {
@@ -136,6 +136,30 @@ public class DefaultMonitorPlatformTests : IDisposable
         platform.SetControls(new() { ["Fan"] = 50f });
 
         Assert.Null(adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void SetControls_NullInitialValue_DoesNotThrow_TreatsAsStopped()
+    {
+        var (_, adapter, platform) = BuildPlatform(null, MakeCtrl(stepUp: 8));
+
+        var exception = Record.Exception(() => platform.SetControls(new() { ["Fan"] = 50f }));
+
+        Assert.Null(exception);
+        Assert.Equal(8f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void SetControls_AfterResumeWithNullValue_DoesNotThrow_TreatsAsStopped()
+    {
+        var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepUp: 8));
+        adapter.ControlValues["/fan/0"] = null;
+
+        platform.Resume();
+        var exception = Record.Exception(() => platform.SetControls(new() { ["Fan"] = 50f }));
+
+        Assert.Null(exception);
+        Assert.Equal(8f, adapter.LastSetValue("/fan/0"));
     }
 
     private sealed class FakeAdapter : IPlatformAdapter
