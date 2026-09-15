@@ -96,6 +96,39 @@ public class DefaultMonitorPlatformTests : IDisposable
     }
 
     [Fact]
+    public void SetControls_MinStop_DoesNotSkipStepDown()
+    {
+        // prev=50, request=10, MinStop=20, StepDown=8 → ramp to 42, not jump to 20
+        var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepDown: 8, minStop: 20));
+
+        platform.SetControls(new() { ["Fan"] = 10f });
+
+        Assert.Equal(42f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void SetControls_MinStop_FloorsRampedValueWhenCrossed()
+    {
+        // prev=25, request=10, MinStop=20, StepDown=8 → ramp would be 17, floor at 20
+        var (_, adapter, platform) = BuildPlatform(25f, MakeCtrl(stepDown: 8, minStop: 20));
+
+        platform.SetControls(new() { ["Fan"] = 10f });
+
+        Assert.Equal(20f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void SetControls_ZeroRequest_RampsThroughMinStop()
+    {
+        // Request 0 must be allowed to step down through MinStop toward off
+        var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepDown: 8, minStop: 20));
+
+        platform.SetControls(new() { ["Fan"] = 0f });
+
+        Assert.Equal(42f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
     public void SetControls_MinStart_EnforcedWhenStopped()
     {
         // prev=0 (stopped), stepUp=100 so ramp doesn't interfere, request=5 < MinStart=20
@@ -104,6 +137,17 @@ public class DefaultMonitorPlatformTests : IDisposable
         platform.SetControls(new() { ["Fan"] = 5f });
 
         Assert.Equal(20f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void SetControls_MinStart_AppliedToRampedValueWhenStarting()
+    {
+        // prev=0, request=40 (>= MinStart), StepUp=8 → ramp would be 8, boost to MinStart=30
+        var (_, adapter, platform) = BuildPlatform(0f, MakeCtrl(stepUp: 8, minStart: 30));
+
+        platform.SetControls(new() { ["Fan"] = 40f });
+
+        Assert.Equal(30f, adapter.LastSetValue("/fan/0"));
     }
 
     [Fact]
@@ -141,7 +185,7 @@ public class DefaultMonitorPlatformTests : IDisposable
     [Fact]
     public void SetControls_NullInitialValue_DoesNotThrow_TreatsAsStopped()
     {
-        var (_, adapter, platform) = BuildPlatform(null, MakeCtrl(stepUp: 8));
+        var (_, adapter, platform) = BuildPlatform(null, MakeCtrl(stepUp: 8, minStart: 0));
 
         var exception = Record.Exception(() => platform.SetControls(new() { ["Fan"] = 50f }));
 
@@ -152,7 +196,7 @@ public class DefaultMonitorPlatformTests : IDisposable
     [Fact]
     public void SetControls_AfterResumeWithNullValue_DoesNotThrow_TreatsAsStopped()
     {
-        var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepUp: 8));
+        var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepUp: 8, minStart: 0));
         adapter.ControlValues["/fan/0"] = null;
 
         platform.Resume();

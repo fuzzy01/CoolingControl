@@ -128,20 +128,20 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
                 }
             }
 
-            // Apply min stop / min start logic
-            if (isCurrentlyRunning)
+            // Apply min stop / min start to the ramped value. The original request
+            // still decides whether the fan should keep running (request 0 must be
+            // allowed to ramp through MinStop down to 0).
+            if (controlValue > 0)
             {
-                // If running, ensure speed is above min stop
-                if (controlValue > 0 && controlValue < controlConfig.MinStop)
+                if (isCurrentlyRunning)
                 {
-                    adjustedControlValue = controlConfig.MinStop;
-                    Log.Debug("Adjusted {Alias} to min stop {MinStop}%", alias, controlConfig.MinStop);
+                    if (adjustedControlValue < controlConfig.MinStop)
+                    {
+                        adjustedControlValue = controlConfig.MinStop;
+                        Log.Debug("Adjusted {Alias} to min stop {MinStop}%", alias, controlConfig.MinStop);
+                    }
                 }
-            }
-            else
-            {
-                // If stopped, ensure speed is above min start to start the fan
-                if (controlValue > 0 && controlValue < controlConfig.MinStart)
+                else if (adjustedControlValue < controlConfig.MinStart)
                 {
                     adjustedControlValue = controlConfig.MinStart;
                     Log.Debug("Adjusted {Alias} to min start {MinStart}%", alias, controlConfig.MinStart);
