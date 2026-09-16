@@ -157,15 +157,44 @@ public class CoolingControlDaemon : BackgroundService
         }
         finally
         {
-            _script.OnStop();
+            try
+            {
+                _script.OnStop();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error in Lua on_stop");
+            }
 
-            // Set controls to default values on exit
-            _monitor.ReleaseControls();
+            try
+            {
+                // Set controls to default values on exit
+                _monitor.ReleaseControls();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error releasing controls");
+            }
 
             _hostApplicationLifetime.StopApplication();
 
-            _monitor.Dispose();
-            _script.Dispose();
+            try
+            {
+                _monitor.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error disposing monitor");
+            }
+
+            try
+            {
+                _script.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error disposing script");
+            }
         }
 
         Log.Information("CoolingControl service stopped");
