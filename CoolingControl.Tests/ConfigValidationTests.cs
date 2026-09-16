@@ -72,6 +72,19 @@ public class ConfigValidationTests : IDisposable
         Assert.Contains("LogLevel", ex.Message);
     }
 
+    [Theory]
+    [InlineData("information")]
+    [InlineData("DEBUG")]
+    [InlineData("warning")]
+    public void Validate_LogLevel_WrongCase_Throws(string logLevel)
+    {
+        var config = ValidConfig();
+        config.LogLevel = logLevel;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("LogLevel", ex.Message);
+    }
+
     [Fact]
     public void Validate_NoControls_Throws()
     {

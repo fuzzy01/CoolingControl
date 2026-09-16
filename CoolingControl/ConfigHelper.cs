@@ -62,7 +62,7 @@ public class ConfigHelper
             errors.Add($"MaxControlLoopErrors must be positive (got {config.MaxControlLoopErrors}).");
 
         string[] validLogLevels = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
-        if (!validLogLevels.Contains(config.LogLevel, StringComparer.OrdinalIgnoreCase))
+        if (!validLogLevels.Contains(config.LogLevel))
             errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");
 
         if (config.Controls.Count == 0)
