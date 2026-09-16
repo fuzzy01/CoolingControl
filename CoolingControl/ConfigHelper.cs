@@ -66,7 +66,7 @@ public class ConfigHelper
             errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");
 
         if (config.Controls.Count == 0)
-            errors.Add("At least one control must be defined in Controls.");
+            Log.Warning("No controls defined in Controls. Fans will not be managed. Run list-sensors to discover identifiers, then add controls to config.json.");
 
         if (config.StatusServerEnabled && string.IsNullOrWhiteSpace(config.StatusServerBindAddress))
             errors.Add("StatusServerBindAddress must not be empty.");

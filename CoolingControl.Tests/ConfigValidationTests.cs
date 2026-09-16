@@ -86,13 +86,13 @@ public class ConfigValidationTests : IDisposable
     }
 
     [Fact]
-    public void Validate_NoControls_Throws()
+    public void Validate_NoControls_Succeeds()
     {
         var config = ValidConfig();
         config.Controls.Clear();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
-        Assert.Contains("At least one control", ex.Message);
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
     }
 
     [Fact]
@@ -138,7 +138,6 @@ public class ConfigValidationTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
         Assert.Contains("ScriptPath must not be empty", ex.Message);
-        Assert.Contains("At least one control", ex.Message);
         Assert.Contains("LogLevel", ex.Message);
     }
 
