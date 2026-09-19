@@ -149,7 +149,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
   - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
-  - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"0.0.0.0"` to allow access from other devices on the network.
+  - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network.
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
@@ -320,7 +320,7 @@ end
 - The dashboard auto-refreshes every second
 - JSON API available at: `http://localhost:19999/api/status`
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
-- To allow access from other devices on the network, set `"StatusServerBindAddress": "0.0.0.0"` in `config.json`
+- To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
 - Disable the server with `"StatusServerEnabled": false` in `config.json` if not needed
 
 ### Listing Sensors
