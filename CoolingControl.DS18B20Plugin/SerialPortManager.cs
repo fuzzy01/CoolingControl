@@ -47,9 +47,10 @@ public sealed class SerialPortManager : IDisposable
     public void Stop()
     {
         _cts?.Cancel();
-        _readerThread?.Join(TimeSpan.FromSeconds(2));
-        _readerThread = null;
+        // Close the port first so a blocked ReadLine unblocks instead of waiting out ReadTimeout
         ClosePort();
+        _readerThread?.Join(TimeSpan.FromMilliseconds(ReadTimeoutMs + 1000));
+        _readerThread = null;
         _cts?.Dispose();
         _cts = null;
     }
