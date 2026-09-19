@@ -176,8 +176,6 @@ public class CoolingControlDaemon : BackgroundService
                 Log.Error(ex, "Error releasing controls");
             }
 
-            _hostApplicationLifetime.StopApplication();
-
             try
             {
                 _monitor.Dispose();
@@ -195,6 +193,17 @@ public class CoolingControlDaemon : BackgroundService
             {
                 Log.Error(ex, "Error disposing script");
             }
+
+            try
+            {
+                _CSVLogger.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error disposing CSV logger");
+            }
+
+           _hostApplicationLifetime.StopApplication();
         }
 
         Log.Information("CoolingControl service stopped");
