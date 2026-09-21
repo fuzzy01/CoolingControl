@@ -149,7 +149,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
   - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
-  - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network.
+  - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network (`"0.0.0.0"` is not a valid HTTP.sys prefix).
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
