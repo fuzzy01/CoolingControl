@@ -262,7 +262,12 @@ public class StatusServer : IHostedService, IDisposable
                 const resp = await fetch('/api/status');
                 if (!resp.ok) throw new Error('Failed to fetch status');
                 const data = await resp.json();
-                if (!initialized) {
+                const hasSeries =
+                    Object.keys(data.history.sensors).length > 0 ||
+                    Object.keys(data.history.controls).length > 0 ||
+                    Object.keys(data.sensors).length > 0 ||
+                    Object.keys(data.controls).length > 0;
+                if (!initialized && hasSeries) {
                     buildDashboard(data);
                     initialized = true;
                 }
@@ -286,10 +291,10 @@ public class StatusServer : IHostedService, IDisposable
 
         function buildDashboard(data) {
             const chartsHtml = '<div class="charts-grid">' +
-                Object.entries(data.history.sensors).map(([alias, _]) =>
+                Object.entries(data.sensors).map(([alias, _]) =>
                     '<div class="chart-container"><div class="chart-title">' + escapeHtml(alias) + ' (' + getUnit(alias) + ')</div><canvas id="chart-sensor-' + sanitizeId(alias) + '"></canvas></div>'
                 ).join('') +
-                Object.entries(data.history.controls).map(([alias, _]) =>
+                Object.entries(data.controls).map(([alias, _]) =>
                     '<div class="chart-container"><div class="chart-title">' + escapeHtml(alias) + ' (%)</div><canvas id="chart-control-' + sanitizeId(alias) + '"></canvas></div>'
                 ).join('') +
                 '</div>';
