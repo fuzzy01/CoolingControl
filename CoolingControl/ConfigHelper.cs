@@ -71,8 +71,8 @@ public class ConfigHelper
         if (config.StatusServerEnabled && string.IsNullOrWhiteSpace(config.StatusServerBindAddress))
             errors.Add("StatusServerBindAddress must not be empty.");
 
-        var controlAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var controlIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var controlAliases = new HashSet<string>();
+        var controlIdentifiers = new HashSet<string>();
         for (int i = 0; i < config.Controls.Count; i++)
         {
             var c = config.Controls[i];
@@ -87,8 +87,8 @@ public class ConfigHelper
                 errors.Add($"Controls[{i}] ('{c.Alias}'): Duplicate identifier '{c.Identifier}'.");
         }
 
-        var sensorAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sensorIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sensorAliases = new HashSet<string>();
+        var sensorIdentifiers = new HashSet<string>();
         for (int i = 0; i < config.Sensors.Count; i++)
         {
             var s = config.Sensors[i];

@@ -96,6 +96,27 @@ public class ConfigValidationTests : IDisposable
     }
 
     [Fact]
+    public void Validate_ControlAliasesDifferingOnlyByCase_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Controls.Add(new() { Alias = "fan", Identifier = "/fan/1" });
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Validate_SensorAliasesDifferingOnlyByCase_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Sensors.Add(new() { Alias = "CPU Temp", Identifier = "/cpu/0/temp/0" });
+        config.Sensors.Add(new() { Alias = "cpu temp", Identifier = "/cpu/0/temp/1" });
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void Validate_DuplicateControlAlias_Throws()
     {
         var config = ValidConfig();
