@@ -81,6 +81,20 @@ public class CoolingControlDaemon : BackgroundService
             _script.OnStart();
             bool isSuspended = false;
             var recentErrors = new Queue<DateTime>();
+            void NoteError(Exception ex)
+            {
+                Log.Error(ex, "Error in control loop");
+                var now = DateTime.UtcNow;
+                recentErrors.Enqueue(now);
+                while (recentErrors.Count > 0 && (now - recentErrors.Peek()).TotalSeconds > 60)
+                    recentErrors.Dequeue();
+                if (recentErrors.Count >= _config.Config.MaxControlLoopErrors)
+                {
+                    Log.Error("Too many errors in control loop, stopping service");
+                    throw new InvalidOperationException("Too many errors in control loop, stopping service");
+                }
+            }
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
@@ -112,36 +126,33 @@ public class CoolingControlDaemon : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "Error in control loop");
-                    var now = DateTime.UtcNow;
-                    recentErrors.Enqueue(now);
-                    while (recentErrors.Count > 0 && (now - recentErrors.Peek()).TotalSeconds > 60)
-                        recentErrors.Dequeue();
-                    if (recentErrors.Count >= _config.Config.MaxControlLoopErrors)
-                    {
-                        Log.Error("Too many errors in control loop, stopping service");
-                        throw new InvalidOperationException("Too many errors in control loop, stopping service");
-                        // break;
-                    }
+                    NoteError(ex);
                 }
 
                 if (_messageQueue.TryTake(out var powerEvent, _intervalMs, cancellationToken))
                 {
-                    switch (powerEvent.Mode)
+                    try
                     {
-                        case PowerModes.Suspend:
-                            _script.OnSuspend();
-                            _monitor.Suspend();
-                            isSuspended = true;
-                            break;
-                        case PowerModes.Resume:
-                            _monitor.Resume();
-                            _script.OnResume();
-                            isSuspended = false;
-                            break;
-                        case PowerModes.StatusChange:
-                            _script.OnPowerSourceChanged(powerEvent.IsAcPowered!.Value);
-                            break;
+                        switch (powerEvent.Mode)
+                        {
+                            case PowerModes.Suspend:
+                                _script.OnSuspend();
+                                _monitor.Suspend();
+                                isSuspended = true;
+                                break;
+                            case PowerModes.Resume:
+                                _monitor.Resume();
+                                _script.OnResume();
+                                isSuspended = false;
+                                break;
+                            case PowerModes.StatusChange:
+                                _script.OnPowerSourceChanged(powerEvent.IsAcPowered!.Value);
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NoteError(ex);
                     }
                 }
             }
