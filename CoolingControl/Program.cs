@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using System.Diagnostics;
+using System.Globalization;
 
 /// <summary>
 /// The main entry point for the application.
@@ -85,7 +86,7 @@ class Program
         // Check for calibrate-temp command-line option
         if (cmd == "calibrate-temp")
         {
-            if (args.Length < 4 || !float.TryParse(args[3], out float maxTemp))
+            if (args.Length < 4 || !float.TryParse(args[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float maxTemp))
             {
                 Log.Error("Usage: calibrate-temp <control_alias> <sensor_alias> <max_temp>");
                 Log.Error("Example: calibrate-temp aio_fans cpu_temp 85");
