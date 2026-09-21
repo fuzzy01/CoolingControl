@@ -73,6 +73,7 @@ public class ConfigHelper
 
         var controlAliases = new HashSet<string>();
         var controlIdentifiers = new HashSet<string>();
+        var rpmSensors = new HashSet<string>();
         for (int i = 0; i < config.Controls.Count; i++)
         {
             var c = config.Controls[i];
@@ -85,6 +86,9 @@ public class ConfigHelper
                 errors.Add($"Controls[{i}] ('{c.Alias}'): Identifier must not be empty.");
             else if (!controlIdentifiers.Add(c.Identifier))
                 errors.Add($"Controls[{i}] ('{c.Alias}'): Duplicate identifier '{c.Identifier}'.");
+
+            if (!string.IsNullOrEmpty(c.RPMSensor) && !rpmSensors.Add(c.RPMSensor))
+                errors.Add($"Controls[{i}] ('{c.Alias}'): Duplicate RPMSensor '{c.RPMSensor}'.");
         }
 
         var sensorAliases = new HashSet<string>();

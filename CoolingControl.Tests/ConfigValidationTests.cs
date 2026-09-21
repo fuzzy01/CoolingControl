@@ -127,6 +127,38 @@ public class ConfigValidationTests : IDisposable
     }
 
     [Fact]
+    public void Validate_DuplicateRPMSensor_Throws()
+    {
+        var config = ValidConfig();
+        config.Controls[0].RPMSensor = "/fan/rpm/0";
+        config.Controls.Add(new() { Alias = "Fan2", Identifier = "/fan/1", RPMSensor = "/fan/rpm/0" });
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("Duplicate RPMSensor", ex.Message);
+    }
+
+    [Fact]
+    public void Validate_EmptyRPMSensorOnMultipleControls_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Controls.Add(new() { Alias = "Fan2", Identifier = "/fan/1" });
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Validate_RPMSensorsDifferingOnlyByCase_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Controls[0].RPMSensor = "/fan/rpm/0";
+        config.Controls.Add(new() { Alias = "Fan2", Identifier = "/fan/1", RPMSensor = "/Fan/rpm/0" });
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void Validate_DuplicateControlIdentifier_Throws()
     {
         var config = ValidConfig();
