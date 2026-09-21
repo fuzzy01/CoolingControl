@@ -82,7 +82,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
     public Dictionary<string, bool> ReleaseControls()
     {
-        return _adapter.ReleaseControls(_config.ControlIdentifiers);
+        return MapResultsToAliases(_adapter.ReleaseControls(_config.ControlIdentifiers));
     }
 
     public Dictionary<string, bool> SetControls(Dictionary<string, float> controlValues, bool force = false)
@@ -167,17 +167,22 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
         }
 
         // Set controls using the adjusted values
-       var res = _adapter.SetControls(adjustedControlValues);
+       var res = MapResultsToAliases(_adapter.SetControls(adjustedControlValues));
        foreach (var kvp in res)
        {
-        if (!kvp.Value)
-        {
-            // Log an error if the control could not be set
-            Log.Error("Failed to set control {Control}", kvp.Key);
+            if (!kvp.Value)
+            {
+                // Log an error if the control could not be set
+                Log.Error("Failed to set control {Control}", kvp.Key);
            }
        }
        return res;
     }
+
+    private Dictionary<string, bool> MapResultsToAliases(Dictionary<string, bool> identifierResults) =>
+        identifierResults.ToDictionary(
+            kvp => _config.ControlConfigsByIdentifier.TryGetValue(kvp.Key, out var cfg) ? cfg.Alias : kvp.Key,
+            kvp => kvp.Value);
    
      private bool _disposed = false;
 

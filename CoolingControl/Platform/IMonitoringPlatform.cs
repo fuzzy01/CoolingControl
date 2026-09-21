@@ -39,7 +39,7 @@ public interface IMonitoringPlatform : IDisposable
     /// </param>
     /// <returns>
     /// A dictionary mapping control aliases to a boolean indicating whether the set operation was successful.
-    /// </returns>/// 
+    /// </returns>
     Dictionary<string, bool> SetControls(Dictionary<string, float> controlValues, bool force = false);
 
     /// <summary>
