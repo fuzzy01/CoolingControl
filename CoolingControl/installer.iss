@@ -16,6 +16,7 @@ Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64os
+CloseApplications=force
 SetupIconFile=.\cooling_control.ico
 WizardStyle=modern
 
@@ -23,7 +24,7 @@ WizardStyle=modern
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-;Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startuptray"; Description: "Start CoolingControl tray at login"; GroupDescription: "Additional icons:"
 
 [Files]
 Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "config\*"
@@ -39,9 +40,9 @@ Source: "publish\config\cooling_control_gpu_sample.lua"; DestDir: "{app}\config"
 Source: "publish\config\cooling_control_profiles_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 
 [Icons]
-;Name: "{group}\{#MyAppName} Console"; Filename: "{app}\{#MyAppExeName}"; Parameters: "console"; WorkingDir: "{app}"
+Name: "{group}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"
+Name: "{commonstartup}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"; Tasks: startuptray
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
-;Name: "{autodesktop}\{#MyAppName} Console"; Filename: "{app}\{#MyAppExeName}"; Parameters: "console"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create CoolingControl binPath= ""{app}\{#MyAppExeName}"" DisplayName= ""CoolingControl"" start= auto"; Flags: runhidden waituntilterminated
@@ -49,10 +50,13 @@ Filename: "{sys}\sc.exe"; Parameters: "description CoolingControl ""Service that
 Filename: "{sys}\sc.exe"; Parameters: "failure CoolingControl reset= 86400 actions= restart/5000/restart/5000/restart/30000"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "failureflag CoolingControl 1"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start CoolingControl"; Description: "Start Windows Service"; Flags: runhidden waituntilterminated;
+Filename: "{app}\CoolingControlTray.exe"; Description: "Start the CoolingControl tray"; Flags: nowait postinstall runasoriginaluser; Tasks: startuptray
 
 [UninstallRun]
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM CoolingControlTray.exe"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "stop CoolingControl"; Flags: runhidden waituntilterminated
 Filename: "{sys}\timeout.exe"; Parameters: "/T 5"; Flags: runhidden waituntilterminated
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM CoolingControlTray.exe /F"; Flags: runhidden waituntilterminated
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#MyAppExeName} /F"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "delete CoolingControl"; Flags: runhidden waituntilterminated
 
@@ -67,6 +71,12 @@ var
   ResultCode: Integer;
 begin
   begin
+    if FileExists(ExpandConstant('{app}\CoolingControlTray.exe')) then
+    begin
+      Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM CoolingControlTray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if (ResultCode <> 0) and (ResultCode <> 128) then
+        Log('Failed to close CoolingControlTray. ResultCode: ' + IntToStr(ResultCode));
+    end;
     if FileExists(ExpandConstant('{app}\{#MyAppExeName}')) then
     begin
       Exec('sc.exe', 'stop CoolingControl', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);

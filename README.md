@@ -329,6 +329,12 @@ end
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
 - Disable the server with `"StatusServerEnabled": false` in `config.json` if not needed
 
+### Tray
+
+`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists the configured sensor values, the control outputs, and the active profile when `Profiles` is set. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
+
+The installer can add a login shortcut for every user. Uncheck "Start CoolingControl tray at login" to skip that. The port comes from `StatusServerPort` in `config\config.json` next to the exe. When the status server is disabled, the icon stays and the menu says so.
+
 ### Listing Sensors
 
 - First stop the service if it is running:

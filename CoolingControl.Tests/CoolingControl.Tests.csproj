@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CoolingControl\CoolingControl.csproj" />
+    <ProjectReference Include="..\CoolingControl.Tray\CoolingControl.Tray.csproj" />
     <ProjectReference Include="..\CoolingControl.DS18B20Plugin\CoolingControl.DS18B20Plugin.csproj" />
   </ItemGroup>
 

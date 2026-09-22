@@ -2,6 +2,10 @@ CoolingControl/bin
 CoolingControl/obj
 CoolingControl/publish
 CoolingControl/output
+CoolingControl.Tray/bin
+CoolingControl.Tray/obj
+CoolingControl.Tray/publish
+CoolingControl.Tray/output
 CoolingControl.Tests/bin
 CoolingControl.Tests/obj
 CoolingControl.Tests/publish

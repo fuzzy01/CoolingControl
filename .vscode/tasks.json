@@ -13,7 +13,7 @@
         "kind": "build",
         "isDefault": false
       },
-      "dependsOn": ["Publish CoolingControl net8.0"],
+      "dependsOn": ["Publish CoolingControl.Tray net8.0"],
       "presentation": {
         "reveal": "always"
       }
@@ -30,7 +30,7 @@
         "kind": "build",
         "isDefault": false
       },
-      "dependsOn": ["Publish CoolingControl net10.0"],
+      "dependsOn": ["Publish CoolingControl.Tray net10.0"],
       "presentation": {
         "reveal": "always"
       }
@@ -86,6 +86,60 @@
       },
       "dependsOn": ["Clean CoolingControl", "Build CoolingControl Release", "Publish CoolingControl.LHMPlugin net10.0", "Publish CoolingControl.DS18B20Plugin net10.0"],
       "dependsOrder": "sequence",
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Publish CoolingControl.Tray net8.0",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "CoolingControl.Tray/CoolingControl.Tray.csproj",
+        "-c",
+        "Release",
+        "-f",
+        "net8.0-windows",
+        "-r",
+        "win-x64",
+        "--no-self-contained",
+        "--output",
+        "CoolingControl/publish"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "dependsOn": ["Publish CoolingControl net8.0"],
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Publish CoolingControl.Tray net10.0",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "CoolingControl.Tray/CoolingControl.Tray.csproj",
+        "-c",
+        "Release",
+        "-f",
+        "net10.0-windows",
+        "-r",
+        "win-x64",
+        "--no-self-contained",
+        "--output",
+        "CoolingControl/publish"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "dependsOn": ["Publish CoolingControl net10.0"],
       "problemMatcher": "$msCompile",
       "presentation": {
         "reveal": "always"
