@@ -150,6 +150,8 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
   - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
   - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network (`"0.0.0.0"` is not a valid HTTP.sys prefix).
+  - `Profiles`: Optional list of profile names, for example `["silent", "balanced", "performance"]`. An empty list leaves the script on one curve and the dashboard shows no profile buttons.
+  - `ActiveProfile`: Profile name the script starts with. It must be one of `Profiles`, or `""`. The status page can change it, and the new name is written back to `config.json`.
   - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
@@ -162,7 +164,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
 
 4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
-5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.lua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
+5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.lua, cooling_control_profiles_sample.lua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
 
 **Example for AIO without coolant temperature sensor**:
 
@@ -251,8 +253,10 @@ end
   - `on_resume()`: Called when the system resumes from sleep. You can use this to reset any state.
   - `on_suspend()`: Called when the system is about to suspend. You can use this to save state or prepare for suspension.
   - `on_power_source_changed(is_ac_powered)`: Called when Windows detects a transition between AC and battery power. `is_ac_powered` is `true` on AC power and `false` on battery power.
+  - `on_profile_changed(name)`: Called when the active profile changes. `name` is the new profile name. Call `cf.on_resume()` here to clear EMA, hysteresis, and PID state from the previous curve.
 
 - Available Lua global tables:
+  - `active_profile`: The current profile name. It is `""` when `Profiles` is empty. Read it inside `calculate_controls` and pick the curve table for that name. `cooling_control_profiles_sample.lua` shows one way to do that.
   - `sensors`: The current sensor values (e.g., `sensors["CPU Package"]`)
   - `control_config`: Configuration for all controls by alias. Each entry has:
     - `alias`: The control name
@@ -317,8 +321,10 @@ end
   - **Sensors**: Real-time sensor values (temperatures, power, load, etc.) with aliases
   - **Controls**: Current control outputs (fan/pump speeds in RPM or %)
   - **Service Info**: Uptime, last update time, script path, update interval
+  - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
-- JSON API available at: `http://localhost:19999/api/status`
+- JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile` and `profiles`)
+- Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
 - Disable the server with `"StatusServerEnabled": false` in `config.json` if not needed

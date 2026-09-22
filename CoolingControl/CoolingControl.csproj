@@ -50,5 +50,6 @@
     <None Include="config/cooling_control_aircooling_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_aircooling_sample.lua" />
     <None Include="config/cooling_control_cfg_access_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_cfg_access_sample.lua" />
     <None Include="config/cooling_control_gpu_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_gpu_sample.lua" />
+    <None Include="config/cooling_control_profiles_sample.lua" CopyToOutputDirectory="Always" Link="config/cooling_control_profiles_sample.lua" />
   </ItemGroup>
 </Project>

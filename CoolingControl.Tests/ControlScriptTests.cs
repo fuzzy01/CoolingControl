@@ -177,6 +177,75 @@ public class ControlScriptTests : IDisposable
     }
 
     [Fact]
+    public void CalculateControls_SeesActiveProfile()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                local value = 0
+                if active_profile == "silent" then value = 1 end
+                if active_profile == "performance" then value = 2 end
+                return { { alias = "Fan", value = value } }
+            end
+            """,
+            activeProfile: "silent",
+            profiles: ["silent", "performance"]);
+
+        Assert.Equal(1f, script.CalculateControls([])["Fan"]);
+    }
+
+    [Fact]
+    public void SetActiveProfile_CallsOnProfileChangedOncePerChange()
+    {
+        using var script = CreateScript(
+            """
+            local changes = 0
+
+            function on_profile_changed(name)
+                changes = changes + 1
+            end
+
+            function calculate_controls(sensors)
+                return { { alias = "Fan", value = changes } }
+            end
+            """);
+
+        script.SetActiveProfile("silent");
+        script.SetActiveProfile("silent");
+        Assert.Equal(1f, script.CalculateControls([])["Fan"]);
+
+        script.SetActiveProfile("balanced");
+        Assert.Equal(2f, script.CalculateControls([])["Fan"]);
+    }
+
+    [Fact]
+    public void SetActiveProfile_CallbackNotDefined_DoesNotThrow()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return { { alias = "Fan", value = 0 } }
+            end
+            """);
+
+        script.SetActiveProfile("silent");
+    }
+
+    [Fact]
+    public void Constructor_EmptyActiveProfile_ExposesEmptyGlobal()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                local value = active_profile == "" and 1 or 0
+                return { { alias = "Fan", value = value } }
+            end
+            """);
+
+        Assert.Equal(1f, script.CalculateControls([])["Fan"]);
+    }
+
+    [Fact]
     public void Constructor_MissingCalculateControls_Throws()
     {
         File.WriteAllText(_scriptPath, "function on_start() end");
@@ -202,17 +271,19 @@ public class ControlScriptTests : IDisposable
         Assert.Contains("did not return a valid table", exception.Message);
     }
 
-    private ControlScript CreateScript(string source, List<ControlConfig>? controls = null)
+    private ControlScript CreateScript(string source, List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null)
     {
         File.WriteAllText(_scriptPath, source);
-        return new ControlScript(CreateConfig(controls));
+        return new ControlScript(CreateConfig(controls, activeProfile, profiles));
     }
 
-    private ConfigHelper CreateConfig(List<ControlConfig>? controls = null)
+    private ConfigHelper CreateConfig(List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null)
     {
         var config = new Config
         {
             ScriptPath = _scriptPath,
+            ActiveProfile = activeProfile,
+            Profiles = profiles ?? (string.IsNullOrEmpty(activeProfile) ? [] : [activeProfile]),
             Controls = controls ??
             [
                 new()

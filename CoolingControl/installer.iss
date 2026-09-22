@@ -36,6 +36,7 @@ Source: "publish\config\cooling_control_aio_with_sensor_sample.lua"; DestDir: "{
 Source: "publish\config\cooling_control_aircooling_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "publish\config\cooling_control_cfg_access_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 Source: "publish\config\cooling_control_gpu_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
+Source: "publish\config\cooling_control_profiles_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 
 [Icons]
 ;Name: "{group}\{#MyAppName} Console"; Filename: "{app}\{#MyAppExeName}"; Parameters: "console"; WorkingDir: "{app}"

@@ -105,6 +105,7 @@ public class CoolingControlDaemon : BackgroundService
                         var sensorData = _monitor.GetSensorValues();
     
                         // Execute script to get control settings
+                        _script.SetActiveProfile(_config.GetActiveProfile());
                         var settings = _script.CalculateControls(sensorData);
 
                         if (_config.Config.EnableCSVLogging)

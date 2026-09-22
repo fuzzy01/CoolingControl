@@ -86,6 +86,50 @@ public class ConfigValidationTests : IDisposable
     }
 
     [Fact]
+    public void Validate_EmptyProfiles_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Profiles = [];
+        config.ActiveProfile = "";
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Validate_KnownActiveProfile_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Profiles = ["silent", "balanced", "performance"];
+        config.ActiveProfile = "balanced";
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Validate_DuplicateProfile_Throws()
+    {
+        var config = ValidConfig();
+        config.Profiles = ["silent", "silent"];
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("Duplicate profile", ex.Message);
+    }
+
+    [Fact]
+    public void Validate_UnknownActiveProfile_Throws()
+    {
+        var config = ValidConfig();
+        config.Profiles = ["silent"];
+        config.ActiveProfile = "performance";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("ActiveProfile", ex.Message);
+        Assert.Contains("not listed in Profiles", ex.Message);
+    }
+
+    [Fact]
     public void Validate_NoControls_Succeeds()
     {
         var config = ValidConfig();

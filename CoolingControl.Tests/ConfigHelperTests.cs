@@ -62,6 +62,30 @@ public class ConfigHelperTests : IDisposable
         Assert.Null(config.ConvertRPMToPercent("Unknown", 1000f));
     }
 
+    [Fact]
+    public void SetActiveProfile_PersistsListedNameAndRejectsUnknown()
+    {
+        var configPath = Path.Combine(_tempDir, "profiles.json");
+        var config = new Config
+        {
+            ScriptPath = _scriptPath,
+            Profiles = ["silent", "balanced"],
+            ActiveProfile = "balanced",
+            Controls = [new() { Alias = "Fan", Identifier = "/fan/0" }]
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(config));
+        var helper = new ConfigHelper(configPath);
+
+        Assert.False(helper.SetActiveProfile("balanced"));
+        Assert.True(helper.SetActiveProfile("silent"));
+        Assert.Equal("silent", helper.GetActiveProfile());
+
+        var saved = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
+        Assert.Equal("silent", saved!.ActiveProfile);
+        Assert.Throws<ArgumentException>(() => helper.SetActiveProfile("performance"));
+        Assert.Equal("silent", helper.GetActiveProfile());
+    }
+
     private ConfigHelper CreateConfig(List<RPMCalibrationData> rpmCalibration)
     {
         var configPath = Path.Combine(_tempDir, $"{Path.GetRandomFileName()}.json");

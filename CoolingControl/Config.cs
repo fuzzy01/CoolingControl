@@ -15,6 +15,8 @@ public class Config
     public bool StatusServerEnabled { get; set; } = true;
     public int StatusServerPort { get; set; } = 19999;
     public string StatusServerBindAddress { get; set; } = "localhost";
+    public List<string> Profiles { get; set; } = [];
+    public string ActiveProfile { get; set; } = "";
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }

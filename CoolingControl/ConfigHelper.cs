@@ -18,6 +18,7 @@ public class ConfigHelper
     private readonly HashSet<string> _controlIdentifiers;
     private readonly Dictionary<string, ControlConfig> _controlConfigsByRPMSensorIdentifier;
     private readonly HashSet<string> _controlRPMSensorIdentifiers;
+    private readonly object _configLock = new();
 
     public ConfigHelper(string configFilePath)
     {
@@ -40,6 +41,37 @@ public class ConfigHelper
     }
 
     public void SaveConfig()
+    {
+        lock (_configLock)
+            WriteConfigUnlocked();
+    }
+
+    public string GetActiveProfile()
+    {
+        lock (_configLock)
+            return _config.ActiveProfile ?? "";
+    }
+
+    public bool SetActiveProfile(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Profile name must not be empty.", nameof(name));
+
+        lock (_configLock)
+        {
+            if (_config.Profiles == null || !_config.Profiles.Contains(name))
+                throw new ArgumentException($"Profile '{name}' is not listed in Profiles.", nameof(name));
+
+            if (_config.ActiveProfile == name)
+                return false;
+
+            _config.ActiveProfile = name;
+            WriteConfigUnlocked();
+            return true;
+        }
+    }
+
+    private void WriteConfigUnlocked()
     {
         var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_configFilePath, jsonString);
@@ -70,6 +102,20 @@ public class ConfigHelper
 
         if (config.StatusServerEnabled && string.IsNullOrWhiteSpace(config.StatusServerBindAddress))
             errors.Add("StatusServerBindAddress must not be empty.");
+
+        var profileNames = new HashSet<string>();
+        var profiles = config.Profiles ?? [];
+        for (int i = 0; i < profiles.Count; i++)
+        {
+            var name = profiles[i];
+            if (string.IsNullOrWhiteSpace(name))
+                errors.Add($"Profiles[{i}] must not be empty.");
+            else if (!profileNames.Add(name))
+                errors.Add($"Profiles[{i}]: Duplicate profile '{name}'.");
+        }
+
+        if (!string.IsNullOrEmpty(config.ActiveProfile) && !profileNames.Contains(config.ActiveProfile))
+            errors.Add($"ActiveProfile '{config.ActiveProfile}' is not listed in Profiles.");
 
         var controlAliases = new HashSet<string>();
         var controlIdentifiers = new HashSet<string>();

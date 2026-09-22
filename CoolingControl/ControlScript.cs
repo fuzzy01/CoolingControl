@@ -17,6 +17,8 @@ public class ControlScript : IDisposable
     private readonly LuaFunction? _on_suspend;
     private readonly LuaFunction? _on_resume;
     private readonly LuaFunction? _on_power_source_changed;
+    private readonly LuaFunction? _on_profile_changed;
+    private string _activeProfile = "";
 
     public ControlScript(ConfigHelper config)
     {
@@ -26,6 +28,8 @@ public class ControlScript : IDisposable
         _lua.RegisterFunction("log_debug", typeof(ControlScript).GetMethod(nameof(LuaLogDebug), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_information", typeof(ControlScript).GetMethod(nameof(LuaLogInformation), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
         _lua.RegisterFunction("log_error", typeof(ControlScript).GetMethod(nameof(LuaLogError), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static));
+        _activeProfile = config.Config.ActiveProfile ?? "";
+        _lua["active_profile"] = _activeProfile;
         try
         {
             _lua.DoFile(config.Config.ScriptPath);
@@ -41,6 +45,9 @@ public class ControlScript : IDisposable
         _on_suspend = _lua["on_suspend"] as LuaFunction;
         _on_resume = _lua["on_resume"] as LuaFunction;
         _on_power_source_changed = _lua["on_power_source_changed"] as LuaFunction;
+        _on_profile_changed = _lua["on_profile_changed"] as LuaFunction;
+        _activeProfile = _config.Config.ActiveProfile ?? "";
+        _lua["active_profile"] = _activeProfile;
 
         _lua["control_config"] = BuildLuaControlConfigTable();
         _lua["sensor_config"] = BuildLuaSensorConfigTable();
@@ -167,9 +174,25 @@ public class ControlScript : IDisposable
         }
     }
 
+    public void SetActiveProfile(string name)
+    {
+        name ??= "";
+        if (_activeProfile == name)
+            return;
+
+        _activeProfile = name;
+        _lua["active_profile"] = name;
+        if (_on_profile_changed != null)
+        {
+            Log.Debug("Calling Lua on_profile_changed function with profile={Profile}", name);
+            _on_profile_changed.Call(name);
+        }
+    }
+
     public Dictionary<string, float> CalculateControls(Dictionary<string, float?> sensorValues)
     {
         Log.Debug("Sensor values: {SensorValues}", sensorValues);
+        _lua["active_profile"] = _activeProfile;
         // Pass sensor data to Lua
         _lua["sensors"] = sensorValues;
 

@@ -117,6 +117,10 @@ public class StatusServer : IHostedService, IDisposable
             {
                 HandleApiStatus(response);
             }
+            else if (path == "/api/profile")
+            {
+                HandleSetProfile(context);
+            }
             else if (path == "/metrics")
             {
                 await HandleMetricsAsync(response);
@@ -157,6 +161,8 @@ public class StatusServer : IHostedService, IDisposable
             updateInterval = _config.Config.UpdateIntervalMs,
             scriptPath = _config.Config.ScriptPath,
             logLevel = _config.Config.LogLevel,
+            activeProfile = _config.GetActiveProfile(),
+            profiles = _config.Config.Profiles ?? [],
             sensors,
             controls,
             controlRpm,
@@ -166,6 +172,78 @@ public class StatusServer : IHostedService, IDisposable
         var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
         var buffer = Encoding.UTF8.GetBytes(json);
 
+        response.ContentType = "application/json";
+        response.ContentLength64 = buffer.Length;
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Flush();
+        response.Close();
+    }
+
+    private void HandleSetProfile(HttpListenerContext context)
+    {
+        var request = context.Request;
+        var response = context.Response;
+
+        if (!request.IsLocal)
+        {
+            response.StatusCode = 403;
+            response.Close();
+            return;
+        }
+
+        if (!string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            response.StatusCode = 405;
+            response.Close();
+            return;
+        }
+
+        string? name;
+        try
+        {
+            using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
+            using var doc = JsonDocument.Parse(reader.ReadToEnd());
+            name = null;
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in doc.RootElement.EnumerateObject())
+                {
+                    if (!property.Name.Equals("name", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                        name = property.Value.GetString();
+                    break;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            response.StatusCode = 400;
+            response.Close();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            response.StatusCode = 400;
+            response.Close();
+            return;
+        }
+
+        try
+        {
+            _config.SetActiveProfile(name);
+        }
+        catch (ArgumentException)
+        {
+            response.StatusCode = 400;
+            response.Close();
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(new { name = _config.GetActiveProfile() });
+        var buffer = Encoding.UTF8.GetBytes(json);
+        response.StatusCode = 200;
         response.ContentType = "application/json";
         response.ContentLength64 = buffer.Length;
         response.OutputStream.Write(buffer, 0, buffer.Length);
@@ -233,6 +311,9 @@ public class StatusServer : IHostedService, IDisposable
         .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
         .info-item-label { font-size: 12px; color: #666; }
         .info-item-value { font-size: 13px; color: #333; font-weight: 600; margin-top: 4px; }
+        .profile-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+        .profile-btn { border: 1px solid #c5cdf5; background: white; color: #333; border-radius: 4px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .profile-btn.profile-active { background: #667eea; color: white; border-color: #667eea; }
         @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .chart-container { height: 200px; } }
     </style>
 </head>
@@ -299,12 +380,16 @@ public class StatusServer : IHostedService, IDisposable
                 ).join('') +
                 '</div>';
 
+            const profileInfoHtml = (data.profiles && data.profiles.length > 0)
+                ? '<div class="info-item-label">Profile</div><div class="info-item-value profile-buttons" id="profile-buttons"></div>'
+                : '';
             const contentHtml = '<div class="section"><h2>Current Values</h2><div class="metrics-grid" id="metrics-grid"></div></div>' +
                 '<div class="section"><h2>Trends (5 Minutes)</h2>' + chartsHtml + '</div>' +
                 '<div class="info"><div class="info-grid"><div class="info-item-label">Uptime</div><div class="info-item-value" id="uptime"></div>' +
                 '<div class="info-item-label">Last Update</div><div class="info-item-value" id="last-update"></div>' +
                 '<div class="info-item-label">Update Interval</div><div class="info-item-value" id="update-interval"></div>' +
-                '<div class="info-item-label">Script</div><div class="info-item-value" id="script-path"></div></div></div>';
+                '<div class="info-item-label">Script</div><div class="info-item-value" id="script-path"></div>' +
+                profileInfoHtml + '</div></div>';
 
             document.getElementById('content').innerHTML = contentHtml;
         }
@@ -337,6 +422,31 @@ public class StatusServer : IHostedService, IDisposable
             if (intervalEl) intervalEl.textContent = data.updateInterval + ' ms';
             const scriptEl = document.getElementById('script-path');
             if (scriptEl) scriptEl.textContent = data.scriptPath;
+            updateProfileButtons(data);
+        }
+
+        function updateProfileButtons(data) {
+            const profileEl = document.getElementById('profile-buttons');
+            if (!profileEl || !data.profiles) return;
+            profileEl.innerHTML = data.profiles.map(function (name) {
+                const active = name === data.activeProfile ? ' profile-active' : '';
+                return '<button type="button" class="profile-btn' + active + '">' + escapeHtml(name) + '</button>';
+            }).join('');
+        }
+
+        async function setProfile(name) {
+            try {
+                const resp = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                if (!resp.ok) throw new Error('Failed to set profile');
+            } catch (err) {
+                const statusEl = document.getElementById('connection-status');
+                statusEl.textContent = 'Profile change failed';
+                statusEl.style.color = '#f87171';
+            }
         }
 
         function updateCharts(data) {
@@ -426,6 +536,12 @@ public class StatusServer : IHostedService, IDisposable
             div.textContent = text;
             return div.innerHTML;
         }
+
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('.profile-btn');
+            if (!button) return;
+            setProfile(button.textContent);
+        });
 
         updateStatus();
         setInterval(updateStatus, 1000);
