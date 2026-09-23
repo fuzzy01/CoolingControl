@@ -120,8 +120,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private static void UpdateOpenMenu(ContextMenuStrip menu, TrayMenuModel model)
     {
+        var health = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, HealthTag)).ToList();
         var sensors = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, SensorTag)).ToList();
         var controls = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, ControlTag)).ToList();
+        for (var i = 0; i < model.HealthLines.Count; i++)
+            health[i].Text = EscapeAmpersand(model.HealthLines[i]);
         for (var i = 0; i < model.SensorLines.Count; i++)
             sensors[i].Text = EscapeAmpersand(model.SensorLines[i]);
         for (var i = 0; i < model.ControlLines.Count; i++)
@@ -141,6 +144,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private ContextMenuStrip BuildMenu(TrayMenuModel model)
     {
         var menu = new ContextMenuStrip();
+        foreach (var line in model.HealthLines)
+            menu.Items.Add(DisabledItem(line, HealthTag));
+        if (model.HealthLines.Count > 0 && (model.SensorLines.Count > 0 || model.ControlLines.Count > 0))
+            menu.Items.Add(new ToolStripSeparator());
         foreach (var line in model.SensorLines)
             menu.Items.Add(DisabledItem(line, SensorTag));
         foreach (var line in model.ControlLines)
@@ -244,6 +251,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
+    private const string HealthTag = "health";
     private const string SensorTag = "sensor";
     private const string ControlTag = "control";
 

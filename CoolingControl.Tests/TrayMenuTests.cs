@@ -6,6 +6,7 @@ namespace CoolingControl.Tests;
 public class TrayMenuTests : IDisposable
 {
     private readonly string _tempDir;
+    private static readonly DateTime HealthNow = new(2026, 9, 23, 12, 0, 0, DateTimeKind.Utc);
 
     public TrayMenuTests()
     {
@@ -113,6 +114,74 @@ public class TrayMenuTests : IDisposable
 
         Assert.False(TrayMenuBuilder.SameShape(first, fewerSensors));
         Assert.False(TrayMenuBuilder.SameShape(first, renamedProfile));
+    }
+
+    [Fact]
+    public void FromJson_HealthLines_FormatsAgeAndUptime()
+    {
+        var fresh = TrayMenuBuilder.FromJson(
+            HealthJson("1h 2m 3s", HealthNow.AddSeconds(-2), 1000), HealthNow);
+        var justNow = TrayMenuBuilder.FromJson(
+            HealthJson("1m 0s", HealthNow.AddMilliseconds(-400), 1000), HealthNow);
+        var minutes = TrayMenuBuilder.FromJson(
+            HealthJson("1h 0m 0s", HealthNow.AddSeconds(-(3 * 60 + 12)), 80_000), HealthNow);
+
+        Assert.Equal(["Uptime 1h 2m 3s", "Updated 2s ago"], fresh.HealthLines);
+        Assert.Equal("Updated just now", justNow.HealthLines[1]);
+        Assert.Equal("Updated 3m 12s ago", minutes.HealthLines[1]);
+    }
+
+    [Fact]
+    public void FromJson_HealthLines_MarksStalledPastThreshold()
+    {
+        var stalled = TrayMenuBuilder.FromJson(
+            HealthJson("1h 2m 3s", HealthNow.AddSeconds(-30), 1000), HealthNow);
+        var withinLongInterval = TrayMenuBuilder.FromJson(
+            HealthJson("1h 2m 3s", HealthNow.AddSeconds(-12), 5000), HealthNow);
+
+        Assert.Equal("Updated 30s ago · stalled", stalled.HealthLines[1]);
+        Assert.Equal("Updated 12s ago", withinLongInterval.HealthLines[1]);
+    }
+
+    [Fact]
+    public void FromJson_HealthLines_MissingFields_UsesPlaceholders()
+    {
+        var model = TrayMenuBuilder.FromJson("""{ "sensors": { "CPU": 1 } }""", HealthNow);
+
+        Assert.Equal(["Uptime —", "Updated —"], model.HealthLines);
+    }
+
+    [Fact]
+    public void SameShape_IgnoresHealthText()
+    {
+        var first = TrayMenuBuilder.FromJson(
+            HealthJson("1m 0s", HealthNow.AddSeconds(-2), 1000), HealthNow);
+        var second = TrayMenuBuilder.FromJson(
+            HealthJson("2h 0m 0s", HealthNow.AddSeconds(-30), 1000), HealthNow);
+
+        Assert.True(TrayMenuBuilder.SameShape(first, second));
+    }
+
+    [Fact]
+    public void SameShape_HealthLineCount_RequiresRebuild()
+    {
+        var down = TrayMenuBuilder.ServiceNotRunning();
+        var up = TrayMenuBuilder.FromJson("""{ "sensors": { "CPU": 1 } }""", HealthNow);
+
+        Assert.False(TrayMenuBuilder.SameShape(down, up));
+    }
+
+    private static string HealthJson(string uptime, DateTime lastUpdate, int intervalMs)
+    {
+        return $$"""
+            {
+              "uptime": "{{uptime}}",
+              "lastUpdate": "{{lastUpdate.ToString("O")}}",
+              "updateInterval": {{intervalMs}},
+              "sensors": { "CPU": 1 },
+              "controls": { "Fan": 10 }
+            }
+            """;
     }
 
     [Fact]

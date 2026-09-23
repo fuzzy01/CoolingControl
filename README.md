@@ -331,7 +331,7 @@ end
 
 ### Tray
 
-`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists the configured sensor values, the control outputs, and the active profile when `Profiles` is set. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
+`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists the configured sensor values, the control outputs, and the active profile when `Profiles` is set. The menu also shows uptime and how long ago the service last updated. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
 
 The installer can add a login shortcut for every user. Uncheck "Start CoolingControl tray at login" to skip that. The port comes from `StatusServerPort` in `config\config.json` next to the exe. When the status server is disabled, the icon stays and the menu says so.
 

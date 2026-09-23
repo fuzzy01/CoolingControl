@@ -9,7 +9,8 @@ internal sealed record TrayMenuModel(
     IReadOnlyList<string> SensorLines,
     IReadOnlyList<string> ControlLines,
     IReadOnlyList<ProfileChoice> Profiles,
-    string Tooltip);
+    string Tooltip,
+    IReadOnlyList<string> HealthLines);
 
 internal static class TrayMenuBuilder
 {
@@ -18,16 +19,16 @@ internal static class TrayMenuBuilder
     public static TrayMenuModel ServiceNotRunning()
     {
         IReadOnlyList<string> lines = ["Service not running"];
-        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines));
+        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), []);
     }
 
     public static TrayMenuModel StatusServerDisabled()
     {
         IReadOnlyList<string> lines = ["Status server is disabled"];
-        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines));
+        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), []);
     }
 
-    public static TrayMenuModel FromJson(string json)
+    public static TrayMenuModel FromJson(string json, DateTime? utcNow = null)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -36,8 +37,14 @@ internal static class TrayMenuBuilder
         var sensorLines = ReadSensors(root);
         var controlLines = ReadControls(root);
         var profiles = ReadProfiles(root, activeProfile);
+        var healthLines = BuildHealthLines(
+            ReadString(root, "uptime"),
+            ReadString(root, "lastUpdate"),
+            ReadIntervalMs(root),
+            utcNow ?? DateTime.UtcNow);
 
-        return new TrayMenuModel(sensorLines, controlLines, profiles, BuildTooltip(activeProfile, sensorLines));
+        return new TrayMenuModel(
+            sensorLines, controlLines, profiles, BuildTooltip(activeProfile, sensorLines), healthLines);
     }
 
     public static bool SameShape(TrayMenuModel current, TrayMenuModel next)
@@ -45,6 +52,8 @@ internal static class TrayMenuBuilder
         if (current.SensorLines.Count != next.SensorLines.Count)
             return false;
         if (current.ControlLines.Count != next.ControlLines.Count)
+            return false;
+        if (current.HealthLines.Count != next.HealthLines.Count)
             return false;
         if (current.Profiles.Count != next.Profiles.Count)
             return false;
@@ -79,6 +88,66 @@ internal static class TrayMenuBuilder
         if (lower.Contains("load"))
             return "%";
         return "°C";
+    }
+
+    private static List<string> BuildHealthLines(string? uptime, string? lastUpdate, int intervalMs, DateTime utcNow)
+    {
+        var uptimeLine = string.IsNullOrEmpty(uptime) ? "Uptime —" : $"Uptime {uptime}";
+        return [uptimeLine, FormatUpdated(lastUpdate, intervalMs, utcNow)];
+    }
+
+    private static string FormatUpdated(string? lastUpdate, int intervalMs, DateTime utcNow)
+    {
+        if (string.IsNullOrEmpty(lastUpdate)
+            || !DateTime.TryParse(lastUpdate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+            return "Updated —";
+
+        var parsedUtc = parsed.Kind switch
+        {
+            DateTimeKind.Utc => parsed,
+            DateTimeKind.Local => parsed.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(parsed, DateTimeKind.Utc)
+        };
+        var nowUtc = utcNow.Kind == DateTimeKind.Local
+            ? utcNow.ToUniversalTime()
+            : DateTime.SpecifyKind(utcNow, DateTimeKind.Utc);
+
+        var age = nowUtc - parsedUtc;
+        if (age < TimeSpan.Zero)
+            age = TimeSpan.Zero;
+
+        var text = $"Updated {FormatAge(age)}";
+        var threshold = TimeSpan.FromMilliseconds(Math.Max(3L * intervalMs, 10_000L));
+        if (age > threshold)
+            text += " · stalled";
+        return text;
+    }
+
+    private static string FormatAge(TimeSpan age)
+    {
+        if (age < TimeSpan.FromSeconds(1))
+            return "just now";
+
+        if (age.TotalSeconds < 60)
+            return $"{(long)age.TotalSeconds}s ago";
+
+        if (age.TotalHours < 1)
+            return $"{(int)age.TotalMinutes}m {age.Seconds}s ago";
+
+        if (age.TotalDays < 1)
+            return $"{(int)age.TotalHours}h {age.Minutes}m ago";
+
+        return $"{(int)age.TotalDays}d {age.Hours}h ago";
+    }
+
+    private static int ReadIntervalMs(JsonElement root)
+    {
+        if (!root.TryGetProperty("updateInterval", out var value)
+            || value.ValueKind != JsonValueKind.Number
+            || !value.TryGetInt32(out var ms)
+            || ms <= 0)
+            return 1000;
+        return ms;
     }
 
     private static List<string> ReadSensors(JsonElement root)
