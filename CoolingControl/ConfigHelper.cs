@@ -93,6 +93,12 @@ public class ConfigHelper
         if (config.MaxControlLoopErrors <= 0)
             errors.Add($"MaxControlLoopErrors must be positive (got {config.MaxControlLoopErrors}).");
 
+        if (config.BeatDetuneMinSeparationRpm <= 0)
+            errors.Add($"BeatDetuneMinSeparationRpm must be positive (got {config.BeatDetuneMinSeparationRpm}).");
+
+        if (config.BeatDetuneMaxNudgeRpm < 0)
+            errors.Add($"BeatDetuneMaxNudgeRpm must be zero or positive (got {config.BeatDetuneMaxNudgeRpm}).");
+
         string[] validLogLevels = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         if (!validLogLevels.Contains(config.LogLevel))
             errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");
@@ -178,19 +184,9 @@ public class ConfigHelper
 
     public float? ConvertRPMToPercent(string alias, float rpm)
     {
-        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
-        {
-            Log.Error("Control {Alias} not configured", alias);
+        if (!TryGetRpmCalibration(alias, out var rpmCalibration))
             return null;
-        }
 
-        if (controlConfig.RPMCalibration.Count <= 1)
-        {
-            Log.Error("Control {Alias} has no valid RPM calibration data", alias);
-            return null;
-        }
-
-        var rpmCalibration = controlConfig.RPMCalibration;
         float value = 0f;
 
         if (rpm < rpmCalibration[0].Rpm)
@@ -230,6 +226,72 @@ public class ConfigHelper
         }
 
         return value;
+    }
+
+    public float? ConvertPercentToRpm(string alias, float percent)
+    {
+        if (!TryGetRpmCalibration(alias, out var rpmCalibration))
+            return null;
+
+        var sorted = rpmCalibration.OrderBy(point => point.Control).ToList();
+        if (percent <= sorted[0].Control)
+            return sorted[0].Rpm;
+        if (percent >= sorted[^1].Control)
+            return sorted[^1].Rpm;
+
+        for (int i = 0; i < sorted.Count - 1; i++)
+        {
+            var lower = sorted[i];
+            var upper = sorted[i + 1];
+            var controlDelta = upper.Control - lower.Control;
+            if (controlDelta == 0)
+                continue;
+
+            if (percent >= lower.Control && percent <= upper.Control)
+                return lower.Rpm + (upper.Rpm - lower.Rpm) * ((percent - lower.Control) / controlDelta);
+        }
+
+        return null;
+    }
+
+    public bool TryGetEffectiveRpm(string alias, float requestedRpm, out float effectiveRpm, out float maxRpm)
+    {
+        effectiveRpm = 0f;
+        maxRpm = 0f;
+        if (!TryGetRpmCalibration(alias, out var rpmCalibration))
+            return false;
+
+        maxRpm = rpmCalibration[^1].Rpm;
+        if (requestedRpm <= 0)
+            effectiveRpm = requestedRpm;
+        else if (requestedRpm <= rpmCalibration[0].Rpm)
+            effectiveRpm = rpmCalibration[0].Rpm;
+        else if (requestedRpm >= rpmCalibration[^1].Rpm)
+            effectiveRpm = rpmCalibration[^1].Rpm;
+        else
+            effectiveRpm = requestedRpm;
+
+        return true;
+    }
+
+    private bool TryGetRpmCalibration(string alias, out IReadOnlyList<RPMCalibrationData> rpmCalibration)
+    {
+        if (!_controlConfigsByAlias.TryGetValue(alias, out var controlConfig))
+        {
+            Log.Error("Control {Alias} not configured", alias);
+            rpmCalibration = [];
+            return false;
+        }
+
+        if (controlConfig.RPMCalibration.Count <= 1)
+        {
+            Log.Error("Control {Alias} has no valid RPM calibration data", alias);
+            rpmCalibration = [];
+            return false;
+        }
+
+        rpmCalibration = controlConfig.RPMCalibration;
+        return true;
     }
 
 }

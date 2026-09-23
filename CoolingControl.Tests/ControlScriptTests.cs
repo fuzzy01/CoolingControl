@@ -57,6 +57,108 @@ public class ControlScriptTests : IDisposable
     }
 
     [Fact]
+    public void CalculateControls_BeatDetune_SpreadsCloseRpmTargets()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "FanA", rpm = 1000 },
+                    { alias = "FanB", rpm = 1080 }
+                }
+            end
+            """,
+            [CalibratedFan("FanA", "/fan/0", beatDetune: true), CalibratedFan("FanB", "/fan/1", beatDetune: true)]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(PercentForRpm(1000f), result["FanA"]);
+        Assert.Equal(PercentForRpm(1150f), result["FanB"]);
+    }
+
+    [Fact]
+    public void CalculateControls_BeatDetuneDisabled_KeepsScriptRpm()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "FanA", rpm = 1000 },
+                    { alias = "FanB", rpm = 1080 }
+                }
+            end
+            """,
+            [CalibratedFan("FanA", "/fan/0", beatDetune: false), CalibratedFan("FanB", "/fan/1", beatDetune: false)]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(PercentForRpm(1000f), result["FanA"]);
+        Assert.Equal(PercentForRpm(1080f), result["FanB"]);
+    }
+
+    [Fact]
+    public void CalculateControls_BeatDetune_IgnoresStoppedFan()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "FanA", rpm = 0 },
+                    { alias = "FanB", rpm = 1000 }
+                }
+            end
+            """,
+            [CalibratedFan("FanA", "/fan/0", beatDetune: true), CalibratedFan("FanB", "/fan/1", beatDetune: true)]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(20f, result["FanA"]);
+        Assert.Equal(PercentForRpm(1000f), result["FanB"]);
+    }
+
+    [Fact]
+    public void CalculateControls_BeatDetune_ZeroPercentStaysOff()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "FanA", value = 0 },
+                    { alias = "FanB", rpm = 1000 }
+                }
+            end
+            """,
+            [CalibratedFan("FanA", "/fan/0", beatDetune: true), CalibratedFan("FanB", "/fan/1", beatDetune: true)]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(0f, result["FanA"]);
+        Assert.Equal(PercentForRpm(1000f), result["FanB"]);
+    }
+
+    [Fact]
+    public void CalculateControls_BeatDetune_SpreadsPercentTargets()
+    {
+        float lowPercent = PercentForRpm(1000f);
+        float highPercent = PercentForRpm(1080f);
+        using var script = CreateScript(
+            $$"""
+            function calculate_controls(sensors)
+                return {
+                    { alias = "FanA", value = {{lowPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)}} },
+                    { alias = "FanB", value = {{highPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)}} }
+                }
+            end
+            """,
+            [CalibratedFan("FanA", "/fan/0", beatDetune: true), CalibratedFan("FanB", "/fan/1", beatDetune: true)]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(PercentForRpm(1000f), result["FanA"]);
+        Assert.Equal(PercentForRpm(1150f), result["FanB"]);
+    }
+
+    [Fact]
     public void LifecycleCallbacks_UpdateLuaState()
     {
         using var script = CreateScript(
@@ -307,4 +409,19 @@ public class ControlScriptTests : IDisposable
         File.WriteAllText(_configPath, JsonSerializer.Serialize(config));
         return new ConfigHelper(_configPath);
     }
+
+    private static ControlConfig CalibratedFan(string alias, string identifier, bool beatDetune) => new()
+    {
+        Alias = alias,
+        Identifier = identifier,
+        BeatDetune = beatDetune,
+        RPMCalibration =
+        [
+            new() { Control = 20f, Rpm = 500f },
+            new() { Control = 100f, Rpm = 2500f }
+        ]
+    };
+
+    private static float PercentForRpm(float rpm) =>
+        20f + (100f - 20f) * ((rpm - 500f) / (2500f - 500f));
 }

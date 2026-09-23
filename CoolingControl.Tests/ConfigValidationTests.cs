@@ -247,4 +247,24 @@ public class ConfigValidationTests : IDisposable
         var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
         Assert.Contains("StatusServerBindAddress must not be empty", ex.Message);
     }
+
+    [Fact]
+    public void Validate_BeatDetuneMinSeparationRpm_NonPositive_Throws()
+    {
+        var config = ValidConfig();
+        config.BeatDetuneMinSeparationRpm = 0;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("BeatDetuneMinSeparationRpm must be positive", ex.Message);
+    }
+
+    [Fact]
+    public void Validate_BeatDetuneMaxNudgeRpm_Negative_Throws()
+    {
+        var config = ValidConfig();
+        config.BeatDetuneMaxNudgeRpm = -1;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("BeatDetuneMaxNudgeRpm must be zero or positive", ex.Message);
+    }
 }

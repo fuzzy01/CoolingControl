@@ -62,6 +62,49 @@ public class ConfigHelperTests : IDisposable
         Assert.Null(config.ConvertRPMToPercent("Unknown", 1000f));
     }
 
+    [Theory]
+    [InlineData(20f, 500f)]
+    [InlineData(60f, 1500f)]
+    [InlineData(100f, 2500f)]
+    [InlineData(0f, 500f)]
+    [InlineData(110f, 2500f)]
+    public void ConvertPercentToRpm_ClampsAndInterpolates(float percent, float expectedRpm)
+    {
+        var config = CreateConfig(
+        [
+            new() { Control = 20f, Rpm = 500f },
+            new() { Control = 100f, Rpm = 2500f }
+        ]);
+
+        var result = config.ConvertPercentToRpm("Fan", percent);
+
+        Assert.Equal(expectedRpm, result!.Value);
+    }
+
+    [Fact]
+    public void ConvertPercentToRpm_ZeroControlDelta_SkipsSegment()
+    {
+        var config = CreateConfig(
+        [
+            new() { Control = 20f, Rpm = 500f },
+            new() { Control = 20f, Rpm = 700f },
+            new() { Control = 100f, Rpm = 2500f }
+        ]);
+
+        var result = config.ConvertPercentToRpm("Fan", 60f);
+
+        Assert.Equal(1600f, result!.Value);
+    }
+
+    [Fact]
+    public void ConvertPercentToRpm_MissingOrInsufficientCalibration_ReturnsNull()
+    {
+        var config = CreateConfig([]);
+
+        Assert.Null(config.ConvertPercentToRpm("Fan", 50f));
+        Assert.Null(config.ConvertPercentToRpm("Unknown", 50f));
+    }
+
     [Fact]
     public void SetActiveProfile_PersistsListedNameAndRejectsUnknown()
     {

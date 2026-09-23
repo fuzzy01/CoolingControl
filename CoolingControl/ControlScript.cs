@@ -200,65 +200,182 @@ public class ControlScript : IDisposable
         var callResult = _calculate_controls.Call(_lua["sensors"]);
         LuaTable result = (callResult.Length > 0 ? callResult[0] as LuaTable : null) ?? throw new InvalidOperationException("Lua function 'calculate_controls' did not return a valid table");
 
-        // Parse the result
-        var controlValues = new Dictionary<string, float>();
-        foreach (var key in result.Keys)
-        {
-            if (result[key] is LuaTable entry)
-            {
-                if (entry["alias"] is not string alias || string.IsNullOrWhiteSpace(alias))
-                {
-                    Log.Error("Lua table entry {Key} is missing 'alias'", key);
-                    continue;
-                }
-
-                if (!_config.ControlConfigsByAlias.ContainsKey(alias))
-                {
-                    Log.Error("Lua returned unknown control alias '{Alias}'", alias);
-                    continue;
-                }
-
-                float value;
-                try
-                {
-                    if (entry["value"] != null)
-                    {
-                        value = Convert.ToSingle(entry["value"]);
-                    }
-                    else if (entry["rpm"] != null)
-                    {
-                        var rpm = Convert.ToSingle(entry["rpm"]);
-                        var converted = _config.ConvertRPMToPercent(alias, rpm);
-                        if (converted == null)
-                            continue;
-                        value = converted.Value;
-                    }
-                    else
-                    {
-                        Log.Error("Lua table entry {Key} for alias '{Alias}' has neither 'value' nor 'rpm'", key, alias);
-                        continue;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Invalid numeric value in Lua entry {Key} for alias '{Alias}'", key, alias);
-                    continue;
-                }
-
-                if (controlValues.ContainsKey(alias))
-                {
-                    Log.Warning("Duplicate Lua control alias '{Alias}' detected; overwriting previous value", alias);
-                }
-                controlValues[alias] = value;
-            }
-            else
-            {
-                Log.Error("Invalid Lua table entry for key: {Key}", key);
-            }
-        }
+        var requests = ParseControlRequests(result);
+        var controlValues = ApplyBeatDetune(requests);
 
         Log.Debug("Control values: {ControlValues}", controlValues);
         return controlValues;
+    }
+
+    private readonly record struct ScriptRequest(string Alias, bool IsRpm, float Amount);
+
+    private Dictionary<string, ScriptRequest> ParseControlRequests(LuaTable result)
+    {
+        var requests = new Dictionary<string, ScriptRequest>();
+        foreach (var key in result.Keys)
+        {
+            if (result[key] is not LuaTable entry)
+            {
+                Log.Error("Invalid Lua table entry for key: {Key}", key);
+                continue;
+            }
+
+            if (entry["alias"] is not string alias || string.IsNullOrWhiteSpace(alias))
+            {
+                Log.Error("Lua table entry {Key} is missing 'alias'", key);
+                continue;
+            }
+
+            if (!_config.ControlConfigsByAlias.ContainsKey(alias))
+            {
+                Log.Error("Lua returned unknown control alias '{Alias}'", alias);
+                continue;
+            }
+
+            bool isRpm;
+            float amount;
+            try
+            {
+                if (entry["value"] != null)
+                {
+                    isRpm = false;
+                    amount = Convert.ToSingle(entry["value"]);
+                }
+                else if (entry["rpm"] != null)
+                {
+                    isRpm = true;
+                    amount = Convert.ToSingle(entry["rpm"]);
+                    if (!_config.TryGetEffectiveRpm(alias, amount, out _, out _))
+                        continue;
+                }
+                else
+                {
+                    Log.Error("Lua table entry {Key} for alias '{Alias}' has neither 'value' nor 'rpm'", key, alias);
+                    continue;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Invalid numeric value in Lua entry {Key} for alias '{Alias}'", key, alias);
+                continue;
+            }
+
+            if (requests.ContainsKey(alias))
+                Log.Warning("Duplicate Lua control alias '{Alias}' detected; overwriting previous value", alias);
+
+            requests[alias] = new ScriptRequest(alias, isRpm, amount);
+        }
+
+        return requests;
+    }
+
+    private Dictionary<string, float> ApplyBeatDetune(Dictionary<string, ScriptRequest> requests)
+    {
+        var controlValues = new Dictionary<string, float>();
+        bool anyDetune = requests.Values.Any(request => _config.ControlConfigsByAlias[request.Alias].BeatDetune);
+        if (!anyDetune)
+        {
+            foreach (var request in requests.Values)
+                AddUnchanged(controlValues, request);
+            return controlValues;
+        }
+
+        var spreadFans = new List<BeatFan>();
+        foreach (var request in requests.Values)
+        {
+            if (!TryGetSpreadFan(request, out var fan))
+            {
+                AddUnchanged(controlValues, request);
+                continue;
+            }
+
+            spreadFans.Add(fan);
+        }
+
+        foreach (var placement in BeatDetuner.Adjust(
+            spreadFans,
+            _config.Config.BeatDetuneMinSeparationRpm,
+            _config.Config.BeatDetuneMaxNudgeRpm))
+        {
+            LogBeatDetune(placement);
+            var percent = _config.ConvertRPMToPercent(placement.Alias, placement.ToRpm);
+            if (percent == null)
+                continue;
+            controlValues[placement.Alias] = percent.Value;
+        }
+
+        return controlValues;
+    }
+
+    private bool TryGetSpreadFan(ScriptRequest request, out BeatFan fan)
+    {
+        fan = default;
+        if (!_config.ControlConfigsByAlias[request.Alias].BeatDetune || request.Amount <= 0f)
+            return false;
+
+        float requestedRpm;
+        if (request.IsRpm)
+        {
+            requestedRpm = request.Amount;
+        }
+        else
+        {
+            var rpm = _config.ConvertPercentToRpm(request.Alias, request.Amount);
+            if (rpm == null)
+                return false;
+            requestedRpm = rpm.Value;
+        }
+
+        if (!_config.TryGetEffectiveRpm(request.Alias, requestedRpm, out var effectiveRpm, out var maxRpm))
+            return false;
+        if (effectiveRpm <= 0f)
+            return false;
+
+        fan = new BeatFan(request.Alias, effectiveRpm, maxRpm);
+        return true;
+    }
+
+    private void AddUnchanged(Dictionary<string, float> controlValues, ScriptRequest request)
+    {
+        if (!request.IsRpm)
+        {
+            controlValues[request.Alias] = request.Amount;
+            return;
+        }
+
+        var percent = _config.ConvertRPMToPercent(request.Alias, request.Amount);
+        if (percent == null)
+            return;
+        controlValues[request.Alias] = percent.Value;
+    }
+
+    private static void LogBeatDetune(BeatPlacement placement)
+    {
+        if (placement.ToRpm == placement.FromRpm)
+            return;
+
+        if (placement.NudgeCapped && placement.CalibrationCapped)
+        {
+            Log.Debug(
+                "Beat detune {Alias} {From} RPM -> {To} RPM (stopped by nudge cap and calibration max)",
+                placement.Alias, placement.FromRpm, placement.ToRpm);
+        }
+        else if (placement.NudgeCapped)
+        {
+            Log.Debug(
+                "Beat detune {Alias} {From} RPM -> {To} RPM (stopped by nudge cap)",
+                placement.Alias, placement.FromRpm, placement.ToRpm);
+        }
+        else if (placement.CalibrationCapped)
+        {
+            Log.Debug(
+                "Beat detune {Alias} {From} RPM -> {To} RPM (stopped by calibration max)",
+                placement.Alias, placement.FromRpm, placement.ToRpm);
+        }
+        else
+        {
+            Log.Debug("Beat detune {Alias} {From} RPM -> {To} RPM", placement.Alias, placement.FromRpm, placement.ToRpm);
+        }
     }
 
     private bool _disposed = false;

@@ -17,6 +17,8 @@ public class Config
     public string StatusServerBindAddress { get; set; } = "localhost";
     public List<string> Profiles { get; set; } = [];
     public string ActiveProfile { get; set; } = "";
+    public float BeatDetuneMinSeparationRpm { get; set; } = 150f;
+    public float BeatDetuneMaxNudgeRpm { get; set; } = 200f;
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }
@@ -45,6 +47,7 @@ public class ControlConfig
     public float MinStart { get; set; } = 20.0f;
     public bool ZeroRPM { get; set; } = false;
     public string RPMSensor { get; set; } = string.Empty;
+    public bool BeatDetune { get; set; } = false;
     public List<RPMCalibrationData> RPMCalibration { get; set; } = new List<RPMCalibrationData>();
     public float? ThermalMinControl { get; set; } = null;
 }

@@ -162,9 +162,12 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `StepDown`: Maximum step down in % per update interval (default: 8%).
   - `ZeroRPM`: If true, when the control is set to 0 RPM the control is handed back to the hardware, it is needed to support GPU fans (default: false).
   - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
+  - `BeatDetuneMinSeparationRpm`: Minimum RPM gap between fans that opt in to beat detune (default: 150). A smaller positive gap is opened by raising the faster fan.
+  - `BeatDetuneMaxNudgeRpm`: Largest RPM increase beat detune may apply to one fan on a tick (default: 200).
+  - `BeatDetune`: When true, this fan takes part in beat detune (default: false). Leave it false on pumps and on matched GPU fans.
 
 4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
-5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.lua, cooling_control_profiles_sample.lua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script.
+5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.lua, cooling_control_profiles_sample.lua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script. Controls with `BeatDetune` set are also spread apart in RPM by the framework after the script returns. See [Beat detune](#beat-detune).
 
 **Example for AIO without coolant temperature sensor**:
 
@@ -370,6 +373,14 @@ The installer can add a login shortcut for every user. Uncheck "Start CoolingCon
 - The calibration process will take some time, as it needs to measure the RPM of the fans and pumps at different speeds.
 - The calibration data includes the minimum start and stop RPM, as well as the RPM curve for each fan and pump.
 - The calibration data is used to convert RPM values to percentages for the fan control logic.
+
+### Beat detune
+
+Fans whose speeds sit a few tens of RPM apart produce a slow beat. Set `BeatDetune` to true on each fan that should take part. After the script returns, CoolingControl sorts those fans by requested RPM and raises one when it is closer than `BeatDetuneMinSeparationRpm` (default 150) to the fan just below it. It never lowers a fan. A raise stops at `BeatDetuneMaxNudgeRpm` (default 200) and at the top of that fan's RPM calibration.
+
+Fans already at least that far apart are left alone. Two fans whose requested speeds are within 1 RPM stay matched, including when that pair is raised together to clear a slower fan. A request at or below 0 stays out of the pass, so a stopped fan is not spun up to open a gap. Pumps and matched GPU fans stay out by leaving `BeatDetune` false.
+
+150 RPM is about a 2.5 Hz rotational beat (`gap / 60`). Step ramp can still carry a measured speed through that window while the duty catches up. The status page and CSV log show the detuned request, before ramp and zero-RPM handback.
 
 ## Plugin Support
 
