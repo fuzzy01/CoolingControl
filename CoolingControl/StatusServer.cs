@@ -163,6 +163,7 @@ public class StatusServer : IHostedService, IDisposable
             logLevel = _config.Config.LogLevel,
             activeProfile = _config.GetActiveProfile(),
             profiles = _config.Config.Profiles ?? [],
+            alerts = _statusSnapshot.GetAlerts().Select(alert => new { key = alert.Key, message = alert.Message }),
             sensors,
             controls,
             controlRpm,
@@ -311,6 +312,7 @@ public class StatusServer : IHostedService, IDisposable
         .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
         .info-item-label { font-size: 12px; color: #666; }
         .info-item-value { font-size: 13px; color: #333; font-weight: 600; margin-top: 4px; }
+        .alerts { background: #fff4f4; color: #9b1c1c; border: 1px solid #f3c1c1; border-radius: 6px; padding: 12px 14px; margin-bottom: 20px; font-weight: 600; white-space: pre-line; }
         .profile-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
         .profile-btn { border: 1px solid #c5cdf5; background: white; color: #333; border-radius: 4px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .profile-btn.profile-active { background: #667eea; color: white; border-color: #667eea; }
@@ -383,7 +385,8 @@ public class StatusServer : IHostedService, IDisposable
             const profileInfoHtml = (data.profiles && data.profiles.length > 0)
                 ? '<div class="info-item-label">Profile</div><div class="info-item-value profile-buttons" id="profile-buttons"></div>'
                 : '';
-            const contentHtml = '<div class="section"><h2>Current Values</h2><div class="metrics-grid" id="metrics-grid"></div></div>' +
+            const contentHtml = '<div id="alerts" class="alerts" style="display:none"></div>' +
+                '<div class="section"><h2>Current Values</h2><div class="metrics-grid" id="metrics-grid"></div></div>' +
                 '<div class="section"><h2>Trends (5 Minutes)</h2>' + chartsHtml + '</div>' +
                 '<div class="info"><div class="info-grid"><div class="info-item-label">Uptime</div><div class="info-item-value" id="uptime"></div>' +
                 '<div class="info-item-label">Last Update</div><div class="info-item-value" id="last-update"></div>' +
@@ -423,6 +426,22 @@ public class StatusServer : IHostedService, IDisposable
             const scriptEl = document.getElementById('script-path');
             if (scriptEl) scriptEl.textContent = data.scriptPath;
             updateProfileButtons(data);
+            updateAlerts(data);
+        }
+
+        function updateAlerts(data) {
+            const alertsEl = document.getElementById('alerts');
+            if (!alertsEl) return;
+            const alerts = (data.alerts || []).map(function (item) {
+                return typeof item === 'string' ? item : item.message;
+            }).filter(Boolean);
+            if (alerts.length === 0) {
+                alertsEl.style.display = 'none';
+                alertsEl.textContent = '';
+                return;
+            }
+            alertsEl.style.display = 'block';
+            alertsEl.textContent = alerts.join('\n');
         }
 
         function updateProfileButtons(data) {

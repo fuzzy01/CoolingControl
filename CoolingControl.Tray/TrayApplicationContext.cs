@@ -68,6 +68,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void Apply(TrayMenuModel model)
     {
         WriteTooltip(model);
+        NotifyAlerts(model.AlertKeys, model.AlertLines);
 
         if (_icon.ContextMenuStrip is { Visible: true } menu)
         {
@@ -120,9 +121,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private static void UpdateOpenMenu(ContextMenuStrip menu, TrayMenuModel model)
     {
+        var alerts = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, AlertTag)).ToList();
         var health = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, HealthTag)).ToList();
         var sensors = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, SensorTag)).ToList();
         var controls = menu.Items.OfType<ToolStripMenuItem>().Where(item => Equals(item.Tag, ControlTag)).ToList();
+        for (var i = 0; i < model.AlertLines.Count; i++)
+            alerts[i].Text = EscapeAmpersand(model.AlertLines[i]);
         for (var i = 0; i < model.HealthLines.Count; i++)
             health[i].Text = EscapeAmpersand(model.HealthLines[i]);
         for (var i = 0; i < model.SensorLines.Count; i++)
@@ -144,6 +148,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private ContextMenuStrip BuildMenu(TrayMenuModel model)
     {
         var menu = new ContextMenuStrip();
+        foreach (var line in model.AlertLines)
+            menu.Items.Add(DisabledItem(line, AlertTag));
+        if (model.AlertLines.Count > 0)
+            menu.Items.Add(new ToolStripSeparator());
         foreach (var line in model.HealthLines)
             menu.Items.Add(DisabledItem(line, HealthTag));
         if (model.HealthLines.Count > 0 && (model.SensorLines.Count > 0 || model.ControlLines.Count > 0))
@@ -252,6 +260,43 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     private const string HealthTag = "health";
+    private const string AlertTag = "alert";
+    private HashSet<string>? _previousAlerts;
+
+    private void NotifyAlerts(IReadOnlyList<string> keys, IReadOnlyList<string> messages)
+    {
+        var current = new HashSet<string>(keys, StringComparer.Ordinal);
+        var fresh = new List<string>();
+        if (_previousAlerts != null)
+        {
+            for (var i = 0; i < keys.Count; i++)
+            {
+                if (!_previousAlerts.Contains(keys[i]))
+                    fresh.Add(messages[i]);
+            }
+        }
+        else
+        {
+            fresh.AddRange(messages);
+        }
+
+        if (fresh.Count > 0)
+            ShowAlertToast(string.Join("\n", fresh));
+
+        _previousAlerts = current;
+    }
+
+    private static void ShowAlertToast(string message)
+    {
+        try
+        {
+            AlertToast.Show(message);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("Alert toast failed: {0}", ex);
+        }
+    }
     private const string SensorTag = "sensor";
     private const string ControlTag = "control";
 

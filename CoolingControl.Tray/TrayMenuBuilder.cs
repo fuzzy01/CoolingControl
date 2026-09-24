@@ -10,7 +10,9 @@ internal sealed record TrayMenuModel(
     IReadOnlyList<string> ControlLines,
     IReadOnlyList<ProfileChoice> Profiles,
     string Tooltip,
-    IReadOnlyList<string> HealthLines);
+    IReadOnlyList<string> HealthLines,
+    IReadOnlyList<string> AlertLines,
+    IReadOnlyList<string> AlertKeys);
 
 internal static class TrayMenuBuilder
 {
@@ -19,13 +21,13 @@ internal static class TrayMenuBuilder
     public static TrayMenuModel ServiceNotRunning()
     {
         IReadOnlyList<string> lines = ["Service not running"];
-        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), []);
+        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), [], [], []);
     }
 
     public static TrayMenuModel StatusServerDisabled()
     {
         IReadOnlyList<string> lines = ["Status server is disabled"];
-        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), []);
+        return new TrayMenuModel(lines, [], [], BuildTooltip(null, lines), [], [], []);
     }
 
     public static TrayMenuModel FromJson(string json, DateTime? utcNow = null)
@@ -42,9 +44,10 @@ internal static class TrayMenuBuilder
             ReadString(root, "lastUpdate"),
             ReadIntervalMs(root),
             utcNow ?? DateTime.UtcNow);
+        var (alertLines, alertKeys) = ReadAlerts(root);
 
         return new TrayMenuModel(
-            sensorLines, controlLines, profiles, BuildTooltip(activeProfile, sensorLines), healthLines);
+            sensorLines, controlLines, profiles, BuildTooltip(activeProfile, sensorLines), healthLines, alertLines, alertKeys);
     }
 
     public static bool SameShape(TrayMenuModel current, TrayMenuModel next)
@@ -54,6 +57,10 @@ internal static class TrayMenuBuilder
         if (current.ControlLines.Count != next.ControlLines.Count)
             return false;
         if (current.HealthLines.Count != next.HealthLines.Count)
+            return false;
+        if (current.AlertLines.Count != next.AlertLines.Count)
+            return false;
+        if (!current.AlertKeys.SequenceEqual(next.AlertKeys))
             return false;
         if (current.Profiles.Count != next.Profiles.Count)
             return false;
@@ -148,6 +155,37 @@ internal static class TrayMenuBuilder
             || ms <= 0)
             return 1000;
         return ms;
+    }
+
+    private static (List<string> lines, List<string> keys) ReadAlerts(JsonElement root)
+    {
+        var lines = new List<string>();
+        var keys = new List<string>();
+        if (!root.TryGetProperty("alerts", out var alerts) || alerts.ValueKind != JsonValueKind.Array)
+            return (lines, keys);
+
+        foreach (var item in alerts.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var text = item.GetString();
+                if (string.IsNullOrEmpty(text))
+                    continue;
+                lines.Add(text);
+                keys.Add(text);
+                continue;
+            }
+
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+            var message = ReadString(item, "message");
+            var key = ReadString(item, "key");
+            if (string.IsNullOrEmpty(message))
+                continue;
+            lines.Add(message);
+            keys.Add(string.IsNullOrEmpty(key) ? message : key);
+        }
+        return (lines, keys);
     }
 
     private static List<string> ReadSensors(JsonElement root)

@@ -81,6 +81,7 @@ public class CoolingControlDaemon : BackgroundService
             _script.OnStart();
             bool isSuspended = false;
             var recentErrors = new Queue<DateTime>();
+            var activeAlerts = new Dictionary<string, string>();
             void NoteError(Exception ex)
             {
                 Log.Error(ex, "Error in control loop");
@@ -93,6 +94,29 @@ public class CoolingControlDaemon : BackgroundService
                     Log.Error("Too many errors in control loop, stopping service");
                     throw new InvalidOperationException("Too many errors in control loop, stopping service");
                 }
+            }
+
+            List<Alert> PublishAlerts(
+                Dictionary<string, float?> sensorData,
+                int recentErrorCount,
+                Dictionary<string, string> active)
+            {
+                var alerts = AlertEvaluator.Evaluate(
+                    sensorData,
+                    recentErrorCount,
+                    _config.Config.MaxControlLoopErrors,
+                    _config.Config.Sensors,
+                    active.Keys);
+                var diff = AlertEvaluator.Diff(active, alerts);
+                foreach (var alert in diff.Raised)
+                    Log.Warning("Alert: {Message}", alert.Message);
+                foreach (var message in diff.Cleared)
+                    Log.Information("Alert cleared: {Message}", message);
+
+                active.Clear();
+                foreach (var alert in alerts)
+                    active[alert.Key] = alert.Message;
+                return alerts.ToList();
             }
 
             while (!cancellationToken.IsCancellationRequested)
@@ -117,11 +141,12 @@ public class CoolingControlDaemon : BackgroundService
                         // Apply control settings
                         var res = _monitor.SetControls(settings);
 
+                        var alertMessages = PublishAlerts(sensorData, recentErrors.Count, activeAlerts);
                         if (_config.Config.StatusServerEnabled)
                         {
                             // Update status snapshot for HTTP server
                             var controlRpmData = _monitor.GetControlRPMValues();
-                            _statusSnapshot.Update(sensorData, settings, controlRpmData, DateTime.UtcNow);
+                            _statusSnapshot.Update(sensorData, settings, controlRpmData, DateTime.UtcNow, alertMessages);
                         }
                     }
                 }

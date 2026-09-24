@@ -146,7 +146,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `ScriptPath`: Path to the Lua script for fan control logic (e.g., `config/cooling_control.lua`).
   - `UpdateIntervalMs`: Interval in milliseconds between reading sensors, running control logic and setting controls (default: 1000 ms).
   - `LogLevel`: Logging level (e.g., "Information", "Debug").
-  - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10).
+  - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10). When the count in that window reaches three quarters of this limit, the status page lists an alert and the tray shows a Windows toast.
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
   - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
   - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network (`"0.0.0.0"` is not a valid HTTP.sys prefix).
@@ -156,6 +156,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
   - `Alias`: A user-friendly name for the sensor (e.g., "CPU Package").
+  - `AlertMax`: Optional maximum for this sensor. A reading at or above it raises an alert. The alert stays until the reading falls 5% below that maximum, so a load test does not raise a new toast on every small change. Omit it to leave the sensor out of temperature alerts. A missing reading does not alert. Example: `"AlertMax": 90` on the CPU Package sensor.
   - `Identifier`: The hardware ID of the sensor (e.g., "/intelcpu/0/temperature/22").
   - `Platform`: The platform adapter that provides this sensor or control. Defaults to `"LHM"` (Libre Hardware Monitor). Set to the name of a plugin adapter to route this entry to a plugin (see [Plugin Support](#plugin-support)).
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
@@ -326,7 +327,7 @@ end
   - **Service Info**: Uptime, last update time, script path, update interval
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
-- JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile` and `profiles`)
+- JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
@@ -334,7 +335,7 @@ end
 
 ### Tray
 
-`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists the configured sensor values, the control outputs, and the active profile when `Profiles` is set. The menu also shows uptime and how long ago the service last updated. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
+`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists active alerts, the configured sensor values, the control outputs, and the active profile when `Profiles` is set. A new alert is also shown as a Windows toast titled CoolingControl. The menu also shows uptime and how long ago the service last updated. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
 
 The installer can add a login shortcut for every user. Uncheck "Start CoolingControl tray at login" to skip that. The port comes from `StatusServerPort` in `config\config.json` next to the exe. When the status server is disabled, the icon stays and the menu says so.
 

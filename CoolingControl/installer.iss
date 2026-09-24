@@ -40,8 +40,8 @@ Source: "publish\config\cooling_control_gpu_sample.lua"; DestDir: "{app}\config"
 Source: "publish\config\cooling_control_profiles_sample.lua"; DestDir: "{app}\config"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"
-Name: "{commonstartup}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"; Tasks: startuptray
+Name: "{group}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"; AppUserModelID: "CoolingControl.Tray"
+Name: "{commonstartup}\CoolingControl Tray"; Filename: "{app}\CoolingControlTray.exe"; WorkingDir: "{app}"; Tasks: startuptray; AppUserModelID: "CoolingControl.Tray"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 
 [Run]

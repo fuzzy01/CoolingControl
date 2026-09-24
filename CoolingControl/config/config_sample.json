@@ -41,7 +41,8 @@
     {
       "Platform": "LHM",
       "Identifier": "/intelcpu/0/temperature/22",
-      "Alias": "CPU Package"
+      "Alias": "CPU Package",
+      "AlertMax": 90
     },
     {
       "Platform": "LHM",

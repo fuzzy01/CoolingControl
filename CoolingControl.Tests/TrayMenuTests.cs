@@ -185,6 +185,31 @@ public class TrayMenuTests : IDisposable
     }
 
     [Fact]
+    public void FromJson_Alerts_BecomeMenuLines()
+    {
+        var model = TrayMenuBuilder.FromJson(
+            """
+            { "alerts": [
+                { "key": "temp:CPU Package", "message": "CPU Package is 90.0, limit 90.0" },
+                { "key": "errors", "message": "Control loop errors 8 of 10 in the last 60 seconds" }
+            ] }
+            """);
+
+        Assert.Equal(
+            ["CPU Package is 90.0, limit 90.0", "Control loop errors 8 of 10 in the last 60 seconds"],
+            model.AlertLines);
+        Assert.Equal(["temp:CPU Package", "errors"], model.AlertKeys);
+    }
+
+    [Fact]
+    public void FromJson_MissingAlerts_IsEmpty()
+    {
+        var model = TrayMenuBuilder.FromJson("""{ "sensors": { "CPU Package": 1 } }""");
+
+        Assert.Empty(model.AlertLines);
+    }
+
+    [Fact]
     public void BuildTooltip_StopsAt127Characters()
     {
         var alias = new string('A', 200);

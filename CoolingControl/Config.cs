@@ -62,5 +62,6 @@ public class SensorConfig
 {
     public string Platform { get; set; } = "LHM";
     public required string Identifier { get; set; }
-    public required string Alias { get; set; }   
+    public required string Alias { get; set; }
+    public float? AlertMax { get; set; }
 }

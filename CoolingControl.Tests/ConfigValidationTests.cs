@@ -86,6 +86,16 @@ public class ConfigValidationTests : IDisposable
     }
 
     [Fact]
+    public void Validate_SensorAlertMax_Succeeds()
+    {
+        var config = ValidConfig();
+        config.Sensors.Add(new() { Alias = "CPU Package", Identifier = "/cpu/0", AlertMax = 90f });
+
+        var ex = Record.Exception(() => ConfigHelper.Validate(config));
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void Validate_EmptyProfiles_Succeeds()
     {
         var config = ValidConfig();

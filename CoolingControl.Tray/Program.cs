@@ -1,7 +1,12 @@
+using System.Runtime.InteropServices;
+
 namespace CoolingControl.Tray;
 
 internal static class Program
 {
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
+
     [STAThread]
     private static void Main()
     {
@@ -9,6 +14,7 @@ internal static class Program
         if (!created)
             return;
 
+        SetCurrentProcessExplicitAppUserModelID(AlertToast.AppUserModelId);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.SetHighDpiMode(HighDpiMode.SystemAware);
