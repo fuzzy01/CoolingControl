@@ -205,6 +205,26 @@ function M.aio_fan_pid_control(coolant_alias, coolant_temp, target_temp, min_fan
     return math.min(max_fan_rpm, math.max(min_fan_rpm, fan_rpm))
 end
 
+--- Holds a payback speed while the thermal mass is warmer than floor.
+---
+--- cf.apply_hysteresis response_time is the burst hold. This function is the
+--- warm-mass floor: once mass_temp is above floor, the fan does not fall below
+--- payback_rpm until the mass is back at floor. At or below floor the curve
+--- speed is returned unchanged. A curve already faster than payback_rpm is
+--- left alone.
+---
+--- @param mass_temp number: Coolant or case-air temperature.
+--- @param curve_rpm number: Speed the normal curve wants this tick.
+--- @param floor number: Temperature where the mass counts as empty.
+--- @param payback_rpm number: Slowest speed used to empty a warm mass.
+--- @return number: curve_rpm at or below floor, otherwise the greater of the two speeds.
+function M.apply_heat_debt(mass_temp, curve_rpm, floor, payback_rpm)
+    if mass_temp <= floor then
+        return curve_rpm
+    end
+    return math.max(curve_rpm, payback_rpm)
+end
+
 --- Clamps a value between a lower and upper bound.
 ---
 --- @param x number: The value to be clamped.

@@ -286,7 +286,8 @@ end
   - `cf.on_resume()`: A function that should be called when the system resumes from sleep.
   - `cf.apply_ema()`: A function that applies exponential moving average to smooth out sensor readings.
   - `cf.apply_linear_curve()`: A function that applies a linear curve to map sensor values to fan/pump speeds based on the defined curve.
-  - `cf.apply_hysteresis()`: A function that applies hysteresis logic to prevent rapid changes in fan/pump speeds based on sensor fluctuations.
+  - `cf.apply_hysteresis()`: A function that applies hysteresis logic to prevent rapid changes in fan/pump speeds based on sensor fluctuations. Its `response_time` argument is the burst hold: the last fan speed stays in place for that many ticks.
+  - `cf.apply_heat_debt(mass_temp, curve_rpm, floor, payback_rpm)`: While `mass_temp` is above `floor`, the returned speed does not fall below `payback_rpm`. At or below `floor` the curve speed is returned unchanged. `response_time` is the burst hold; this function is the warm-mass floor.
   - `cf.aio_fan_pid_control()`: A function that calculates the fan speed based on the coolant temperature, using PID control. Limits for fan speeds should be set according to noise preferences and AIO size.
 
 ## Usage
