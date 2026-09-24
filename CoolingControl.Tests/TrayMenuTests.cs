@@ -185,6 +185,17 @@ public class TrayMenuTests : IDisposable
     }
 
     [Fact]
+    public void Create_SetsTagAndGroupSoWindowsReplacesTheToast()
+    {
+        var toast = AlertToast.Create("CPU Package is 90.0, limit 60.0");
+
+        Assert.Equal(AlertToast.Tag, toast.Tag);
+        Assert.Equal(AlertToast.Group, toast.Group);
+        Assert.Equal("cc-alert", toast.Tag);
+        Assert.Equal("CoolingControl", toast.Group);
+    }
+
+    [Fact]
     public void FromJson_Alerts_BecomeMenuLines()
     {
         var model = TrayMenuBuilder.FromJson(
