@@ -82,14 +82,33 @@ public class CoolingControlDaemon : BackgroundService
             bool isSuspended = false;
             var recentErrors = new Queue<DateTime>();
             var activeAlerts = new Dictionary<string, string>();
+            var lastSensors = new Dictionary<string, float?>();
+
+            int PruneErrors()
+            {
+                var now = DateTime.UtcNow;
+                while (recentErrors.Count > 0 && (now - recentErrors.Peek()).TotalSeconds > 60)
+                    recentErrors.Dequeue();
+                return recentErrors.Count;
+            }
+
             void NoteError(Exception ex)
             {
                 Log.Error(ex, "Error in control loop");
-                var now = DateTime.UtcNow;
-                recentErrors.Enqueue(now);
-                while (recentErrors.Count > 0 && (now - recentErrors.Peek()).TotalSeconds > 60)
-                    recentErrors.Dequeue();
-                if (recentErrors.Count >= _config.Config.MaxControlLoopErrors)
+                recentErrors.Enqueue(DateTime.UtcNow);
+                var errorCount = PruneErrors();
+                try
+                {
+                    var alerts = PublishAlerts(lastSensors, errorCount, activeAlerts);
+                    if (_config.Config.StatusServerEnabled)
+                        _statusSnapshot.SetAlerts(alerts);
+                }
+                catch (Exception publishEx)
+                {
+                    Log.Error(publishEx, "Failed to publish alerts");
+                }
+
+                if (errorCount >= _config.Config.MaxControlLoopErrors)
                 {
                     Log.Error("Too many errors in control loop, stopping service");
                     throw new InvalidOperationException("Too many errors in control loop, stopping service");
@@ -127,6 +146,7 @@ public class CoolingControlDaemon : BackgroundService
                     {
                         // Get sensor data
                         var sensorData = _monitor.GetSensorValues();
+                        lastSensors = new Dictionary<string, float?>(sensorData);
     
                         // Execute script to get control settings
                         _script.SetActiveProfile(_config.GetActiveProfile());
@@ -141,7 +161,7 @@ public class CoolingControlDaemon : BackgroundService
                         // Apply control settings
                         var res = _monitor.SetControls(settings);
 
-                        var alertMessages = PublishAlerts(sensorData, recentErrors.Count, activeAlerts);
+                        var alertMessages = PublishAlerts(sensorData, PruneErrors(), activeAlerts);
                         if (_config.Config.StatusServerEnabled)
                         {
                             // Update status snapshot for HTTP server

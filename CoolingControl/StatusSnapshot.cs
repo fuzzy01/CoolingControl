@@ -8,6 +8,7 @@ public interface IStatusSnapshot
     void Update(Dictionary<string, float?> sensors, Dictionary<string, float> controls,
                 Dictionary<string, float?> controlRpm, DateTime timestamp, IReadOnlyList<Alert> alerts);
     IReadOnlyList<Alert> GetAlerts();
+    void SetAlerts(IReadOnlyList<Alert> alerts);
     (Dictionary<string, float?> sensors, Dictionary<string, float> controls,
      Dictionary<string, float?> controlRpm, DateTime timestamp) GetSnapshot();
     (Dictionary<string, List<float?>> sensors, Dictionary<string, List<float>> controls) GetHistory();
@@ -78,6 +79,12 @@ public class StatusSnapshot : IStatusSnapshot
     {
         lock (_lockObj)
             return new List<Alert>(_alerts);
+    }
+
+    public void SetAlerts(IReadOnlyList<Alert> alerts)
+    {
+        lock (_lockObj)
+            _alerts = new List<Alert>(alerts);
     }
 
     public (Dictionary<string, List<float?>> sensors, Dictionary<string, List<float>> controls) GetHistory()
