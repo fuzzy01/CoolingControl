@@ -52,13 +52,21 @@ class Program
             .WriteTo.File("logs/cooling_control.log", rollingInterval: RollingInterval.Day)
             .CreateLogger();
 
+        var hardwareCatalog = new HardwareCatalog();
+
         // Check for list-sensors command-line option
         if (cmd == "list-sensors")
         {
             Log.Information("Listing all available sensors");
             using (var coolingControl = PlatformAdapterFactory.Create(config))
             {
-                coolingControl.ListAllSensors();
+                hardwareCatalog.Refresh(coolingControl);
+                foreach (var channel in hardwareCatalog.Rows)
+                {
+                    Log.Information(
+                        "Platform: {Platform} - {Hardware} / {Name} (Type: {SensorType}, Identifier: {Identifier}, Control: {IsControl})",
+                        channel.Platform, channel.HardwareName, channel.Name, channel.SensorType, channel.Identifier, channel.IsControl);
+                }
             }
             Log.Information("Sensor listing complete");
             // Exit after listing sensors
@@ -113,7 +121,7 @@ class Program
         // Service handling
         try
         {
-            CoolingControlDaemonBuilder(args, config).Build().Run();
+            CoolingControlDaemonBuilder(args, config, hardwareCatalog).Build().Run();
         }
         catch (Exception ex)
         {
@@ -122,7 +130,7 @@ class Program
         }
     }
 
-    private static IHostBuilder CoolingControlDaemonBuilder(string[] args, ConfigHelper config) =>
+    private static IHostBuilder CoolingControlDaemonBuilder(string[] args, ConfigHelper config, HardwareCatalog hardwareCatalog) =>
         Host.CreateDefaultBuilder(args)
             .UseSerilog()
             .UseWindowsService(options =>
@@ -132,6 +140,7 @@ class Program
             .ConfigureServices((hostContext, services) =>
             {
                 services.AddSingleton(config);
+                services.AddSingleton(hardwareCatalog);
                 services.AddSingleton<IStatusSnapshot, StatusSnapshot>();
                 services.AddHostedService<StatusServer>();
                 services.AddHostedService<CoolingControlDaemon>();

@@ -51,9 +51,10 @@ public interface IMonitoringPlatform : IDisposable
     Dictionary<string, bool> ReleaseControls();
 
     /// <summary>
-    /// Lists all available sensors to the output or log.
+    /// Returns the hardware channels exposed by the platform adapters.
+    /// Each channel carries its adapter's platform name.
     /// </summary>
-    void ListAllSensors();
+    IReadOnlyList<HardwareChannel> GetHardwareCatalog();
 
     /// <summary>
     /// Suspends monitoring and control operations.

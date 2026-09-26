@@ -4,7 +4,7 @@ using Serilog;
 
 /// <summary>
 /// Routes <see cref="IPlatformAdapter"/> calls to the appropriate underlying adapter based on
-/// each identifier's declared platform. Fan-outs (Suspend, Resume, Dispose, ListAllSensors)
+/// each identifier's declared platform. Fan-outs (Suspend, Resume, Dispose)
 /// are dispatched to every registered adapter.
 /// </summary>
 public sealed class CompositePlatformAdapter : IPlatformAdapter
@@ -70,10 +70,12 @@ public sealed class CompositePlatformAdapter : IPlatformAdapter
         return result;
     }
 
-    public void ListAllSensors()
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog()
     {
+        var channels = new List<HardwareChannel>();
         foreach (var adapter in _adapters.Values)
-            adapter.ListAllSensors();
+            channels.AddRange(adapter.GetHardwareCatalog());
+        return channels;
     }
 
     public void Suspend()

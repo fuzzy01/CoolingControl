@@ -1,7 +1,6 @@
 namespace CoolingControl.DS18B20Plugin;
 
 using System.Collections.Concurrent;
-using System.IO.Ports;
 using CoolingControl.Platform;
 using Serilog;
 
@@ -58,21 +57,23 @@ public sealed class DS18B20Adapter : IPlatformAdapter
     public Dictionary<string, bool> ReleaseControls(HashSet<string> controlIdentifiers) =>
         controlIdentifiers.ToDictionary(id => id, _ => false);
 
-    public void ListAllSensors()
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog()
     {
-        Log.Information("Platform: DS18B20 - configured ports: {Ports}", string.Join(", ", _managers.Keys));
-        Log.Information("Platform: DS18B20 - available Windows COM ports: {Available}",
-            string.Join(", ", SerialPort.GetPortNames()));
-
+        var channels = new List<HardwareChannel>();
         foreach (var (port, manager) in _managers)
         {
-            foreach (var (tag, reading) in manager.Snapshot())
+            foreach (var (tag, _) in manager.Snapshot())
             {
-                var ageMs = (DateTime.UtcNow - reading.TimestampUtc).TotalMilliseconds;
-                Log.Information("Platform: DS18B20 - {Port}/{Tag} = {Value} (age {AgeMs:F0}ms)",
-                    port, tag, reading.Value, ageMs);
+                channels.Add(new HardwareChannel(
+                    PlatformName,
+                    $"{port}/{tag}",
+                    tag,
+                    port,
+                    "Temperature",
+                    false));
             }
         }
+        return channels;
     }
 
     public void Suspend()

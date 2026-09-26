@@ -229,7 +229,7 @@ public class DefaultMonitorPlatformTests : IDisposable
         public Dictionary<string, bool> ReleaseControls(HashSet<string> ids) =>
             ids.ToDictionary(id => id, _ => true);
 
-        public void ListAllSensors() { }
+        public IReadOnlyList<HardwareChannel> GetHardwareCatalog() => [];
         public void Suspend() { }
         public void Resume() { }
         public void Dispose() { }

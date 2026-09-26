@@ -15,6 +15,19 @@ using Serilog;
 [PlatformAdapter("LHM")]
 public class LHMAdapter : IPlatformAdapter, IDisposable
 {
+    private static readonly HashSet<SensorType> CatalogSensorTypes =
+    [
+        SensorType.Power,
+        SensorType.Temperature,
+        SensorType.Fan,
+        SensorType.Load,
+        SensorType.Control,
+        SensorType.Level,
+        SensorType.Frequency,
+        SensorType.Flow,
+        SensorType.Noise,
+        SensorType.Humidity
+    ];
     private readonly Computer _computer;
     private readonly ConfigHelper _config;
 
@@ -94,31 +107,22 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
         return SetControls(controlValues);
     }
 
-    public void ListAllSensors()
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog()
     {
-        var loggableSensorTypes = new HashSet<SensorType>
+        var channels = new List<HardwareChannel>();
+        foreach (var (identifier, entry) in _sensorCache)
         {
-            SensorType.Power,
-            SensorType.Temperature,
-            SensorType.Fan,
-            SensorType.Load,
-            SensorType.Control,
-            SensorType.Level,
-            SensorType.Frequency,
-            SensorType.Flow,
-            SensorType.Noise,
-            SensorType.Humidity
-        };
-
-        Log.Information("Platform: LHM");
-        Log.Information("Computer: {Name}", _computer.GetType().Name);
-        foreach (var hardware in _computer.Hardware)
-        {
-            Log.Information("  Hardware: {Name} (Type: {HardwareType})", hardware.Name, hardware.HardwareType);
-            hardware.Update();
-            LogSensors(hardware, loggableSensorTypes, 2);
-            LogSubHardware(hardware, loggableSensorTypes, 2);
+            if (!CatalogSensorTypes.Contains(entry.Sensor.SensorType))
+                continue;
+            channels.Add(new HardwareChannel(
+                "LHM",
+                identifier,
+                entry.Sensor.Name,
+                entry.Hardware.Name,
+                entry.Sensor.SensorType.ToString(),
+                entry.Sensor.SensorType == SensorType.Control));
         }
+        return channels;
     }
 
     private void BuildSensorCache()
@@ -186,56 +190,6 @@ public class LHMAdapter : IPlatformAdapter, IDisposable
             }
         }
     }
-
-    private static void LogSubHardware(IHardware hardware, HashSet<SensorType> loggableSensorTypes, int indent)
-    {
-        var pad = new string(' ', 2 * indent);
-        indent ++;
-        foreach (var sub in hardware.SubHardware)
-        {
-            Log.Information("{Pad}SubHardware: {Name} (Type: {HardwareType})", pad, sub.Name, sub.HardwareType);
-            sub.Update();
-            LogSensors(sub, loggableSensorTypes, indent);
-            LogSubHardware(sub, loggableSensorTypes, indent);
-        }
-    }
-
-    private static void LogSensors(IHardware hardware, HashSet<SensorType> loggableSensorTypes, int indent)
-    {
-        var pad = new string(' ', 2 * indent);
-        foreach (var sensor in hardware.Sensors)
-        {
-            if (!loggableSensorTypes.Contains(sensor.SensorType))
-                continue;
-            Log.Information(
-                "{Pad}Sensor: {Name} (Type: {SensorType}, Identifier: {Identifier}, Value: {Value}, Max: {Max}, Min: {Min}, Unit: {Unit})",
-                pad, sensor.Name, sensor.SensorType, sensor.Identifier,
-                sensor.Value.HasValue ? sensor.Value.Value : "N/A",
-                sensor.Max.HasValue ? sensor.Max.Value : "N/A",
-                sensor.Min.HasValue ? sensor.Min.Value : "N/A",
-                GetSensorUnit(sensor.SensorType));
-        }
-    }
-
-    private static string GetSensorUnit(SensorType sensorType) => sensorType switch
-    {
-        SensorType.Temperature => "°C",
-        SensorType.Humidity => "%",
-        SensorType.Voltage => "V",
-        SensorType.Current => "A",
-        SensorType.Power => "W",
-        SensorType.Fan => "RPM",
-        SensorType.Clock => "MHz",
-        SensorType.Load => "%",
-        SensorType.Control => "%",
-        SensorType.Data => "GB",
-        SensorType.SmallData => "MB",
-        SensorType.Throughput => "MB/s",
-        SensorType.Level => "%",
-        SensorType.Frequency => "Hz",
-        SensorType.Flow => "L/min",
-        _ => ""
-    };
 
     private bool _disposed = false;
 

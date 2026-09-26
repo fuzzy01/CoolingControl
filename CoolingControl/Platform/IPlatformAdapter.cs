@@ -53,9 +53,10 @@ public interface IPlatformAdapter : IDisposable
     Dictionary<string, bool> ReleaseControls(HashSet<string> controlIdentifiers);
 
     /// <summary>
-    /// Lists all available sensors and controls on the platform.
+    /// Returns the hardware channels this adapter can see.
+    /// An adapter with nothing to list returns an empty list.
     /// </summary>
-    void ListAllSensors();
+    IReadOnlyList<HardwareChannel> GetHardwareCatalog();
 
     /// <summary>
     /// Suspends platform-specific operations, such as hardware polling or monitoring.

@@ -17,15 +17,16 @@ public class CoolingControlDaemon : BackgroundService
     private readonly IMonitoringPlatform _monitor;
     private readonly ControlScript _script;
     private readonly CSVLogger _CSVLogger;
+    private readonly HardwareCatalog _hardwareCatalog;
     private readonly IStatusSnapshot _statusSnapshot;
     private readonly int _intervalMs;
-    // private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly BlockingCollection<PowerEvent> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
-    public CoolingControlDaemon(ConfigHelper config, IHostApplicationLifetime hostApplicationLifetime, IStatusSnapshot statusSnapshot)
+    public CoolingControlDaemon(ConfigHelper config, HardwareCatalog hardwareCatalog, IStatusSnapshot statusSnapshot, IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
+        _hardwareCatalog = hardwareCatalog;
         _monitor = new DefaultMonitorPlatform(_config, PlatformAdapterFactory.Create(_config));
         _script = new ControlScript(_config);
         _CSVLogger = new CSVLogger(_config);

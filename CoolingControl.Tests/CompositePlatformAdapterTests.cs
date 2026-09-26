@@ -1,3 +1,4 @@
+using CoolingControl;
 using CoolingControl.Platform;
 using Xunit;
 
@@ -80,13 +81,58 @@ public class CompositePlatformAdapterTests
     }
 
     [Fact]
+    public void GetHardwareCatalog_StampsPlatformAndSkipsAdaptersWithoutCatalog()
+    {
+        var catalog = new CatalogAdapter(
+            new HardwareChannel("LHM", "id-1", "CPU Package", "Board", "Temperature", false));
+        var plain = new FakeAdapter();
+        var adapter = new CompositePlatformAdapter(
+            new Dictionary<string, IPlatformAdapter>
+            {
+                ["LHM"] = catalog,
+                ["Dummy"] = plain
+            },
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>());
+
+        var channel = Assert.Single(adapter.GetHardwareCatalog());
+        Assert.Equal("LHM", channel.Platform);
+        Assert.Equal("id-1", channel.Identifier);
+        Assert.Equal("CPU Package", channel.Name);
+        Assert.False(channel.IsControl);
+    }
+
+    [Fact]
+    public void ListAllSensors_FillsHardwareCatalogFromCatalogAdaptersOnly()
+    {
+        var hardwareCatalog = new HardwareCatalog();
+        var catalog = new CatalogAdapter(
+            new HardwareChannel("LHM", "id-1", "CPU Package", "Board", "Temperature", false));
+        var plain = new FakeAdapter();
+        var adapter = new CompositePlatformAdapter(
+            new Dictionary<string, IPlatformAdapter>
+            {
+                ["LHM"] = catalog,
+                ["Dummy"] = plain
+            },
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>());
+
+        hardwareCatalog.Refresh(adapter);
+
+        var channel = Assert.Single(hardwareCatalog.Rows);
+        Assert.Equal("LHM", channel.Platform);
+        Assert.Equal("id-1", channel.Identifier);
+        Assert.Equal("CPU Package", channel.Name);
+    }
+
+    [Fact]
     public void FanOutOperations_ReachEveryAdapterAndDisposeOnlyOnce()
     {
         var first = new FakeAdapter();
         var second = new FakeAdapter();
         var adapter = CreateAdapter(first, second);
 
-        adapter.ListAllSensors();
         adapter.Suspend();
         adapter.Resume();
         adapter.Dispose();
@@ -94,7 +140,6 @@ public class CompositePlatformAdapterTests
 
         foreach (var fake in new[] { first, second })
         {
-            Assert.Equal(1, fake.ListAllSensorsCallCount);
             Assert.Equal(1, fake.SuspendCallCount);
             Assert.Equal(1, fake.ResumeCallCount);
             Assert.Equal(1, fake.DisposeCallCount);
@@ -137,7 +182,16 @@ public class CompositePlatformAdapterTests
             Assert.Equal(value, actual[identifier]);
     }
 
-    private sealed class FakeAdapter : IPlatformAdapter
+    private sealed class CatalogAdapter : FakeAdapter
+    {
+        private readonly IReadOnlyList<HardwareChannel> _channels;
+
+        public CatalogAdapter(params HardwareChannel[] channels) => _channels = channels;
+
+        public override IReadOnlyList<HardwareChannel> GetHardwareCatalog() => _channels;
+    }
+
+    private class FakeAdapter : IPlatformAdapter
     {
         public Dictionary<string, float?> SensorValues { get; } = [];
         public Dictionary<string, float?> ControlValues { get; } = [];
@@ -147,7 +201,6 @@ public class CompositePlatformAdapterTests
         public List<HashSet<string>> ControlRequests { get; } = [];
         public List<Dictionary<string, float>> SetRequests { get; } = [];
         public List<HashSet<string>> ReleaseRequests { get; } = [];
-        public int ListAllSensorsCallCount { get; private set; }
         public int SuspendCallCount { get; private set; }
         public int ResumeCallCount { get; private set; }
         public int DisposeCallCount { get; private set; }
@@ -176,7 +229,7 @@ public class CompositePlatformAdapterTests
             return controlIdentifiers.ToDictionary(id => id, id => ReleaseResults.GetValueOrDefault(id));
         }
 
-        public void ListAllSensors() => ListAllSensorsCallCount++;
+        public virtual IReadOnlyList<HardwareChannel> GetHardwareCatalog() => [];
         public void Suspend() => SuspendCallCount++;
         public void Resume() => ResumeCallCount++;
         public void Dispose() => DisposeCallCount++;

@@ -29,8 +29,7 @@ public sealed class DummyAdapter : IPlatformAdapter
         return controlIdentifiers.ToDictionary(id => id, _ => true);
     }
 
-    public void ListAllSensors() =>
-        Log.Information("Platform: Dummy");
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog() => [];
 
     public void Suspend() => Log.Debug("Platform: Dummy - Suspend");
 

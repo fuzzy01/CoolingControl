@@ -75,10 +75,7 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
         return _adapter.GetControlValues(_config.ControlIdentifiers).ToDictionary(kvp => _config.ControlConfigsByIdentifier[kvp.Key].Alias, kvp => kvp.Value);
     }
 
-    public void ListAllSensors()
-    {
-        _adapter.ListAllSensors();
-    }
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog() => _adapter.GetHardwareCatalog();
 
     public Dictionary<string, bool> ReleaseControls()
     {
