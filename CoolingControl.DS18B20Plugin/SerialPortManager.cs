@@ -97,6 +97,11 @@ public sealed class SerialPortManager : IDisposable
             {
                 // No data within the read timeout — normal, just loop and check cancellation.
             }
+            catch (OperationCanceledException)
+            {
+                // The read operation was canceled — exit the loop.
+                return;
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
                 Log.Warning(ex, "DS18B20 [{Port}]: serial port error, will retry in {Delay}s", _portName, ReconnectDelay.TotalSeconds);
