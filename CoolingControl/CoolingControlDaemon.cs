@@ -145,6 +145,19 @@ public class CoolingControlDaemon : BackgroundService
                 {
                     if (!isSuspended)
                     {
+                        if (_hardwareCatalog.IsRefreshRequested)
+                        {
+                            try
+                            {
+                                _hardwareCatalog.Publish(_monitor.GetHardwareCatalog());
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, "Failed to read hardware catalog");
+                                _hardwareCatalog.Publish(_hardwareCatalog.Rows);
+                            }
+                        }
+
                         // Get sensor data
                         var sensorData = _monitor.GetSensorValues();
                         lastSensors = new Dictionary<string, float?>(sensorData);

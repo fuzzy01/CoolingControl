@@ -329,6 +329,7 @@ end
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
 - JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
+- The hardware config page is at `http://localhost:19999/config`. It lists the sensors and controls in `config.json`. You can edit their parameters, delete them, or add one by picking a channel from the hardware catalog. Calibration points are not edited here. `list-sensors` still prints the discovery log when the service is stopped. Add, edit, and delete are accepted only from the same machine. Restart the service before a saved entry is read or driven.
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`

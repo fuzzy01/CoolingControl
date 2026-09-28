@@ -71,6 +71,163 @@ public class ConfigHelper
         }
     }
 
+    public void AddSensor(SensorConfig sensor)
+    {
+        lock (_configLock)
+        {
+            EnsureSensor(sensor, null);
+            _config.Sensors.Add(sensor);
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void UpdateSensor(string alias, SensorConfig sensor)
+    {
+        lock (_configLock)
+        {
+            var index = _config.Sensors.FindIndex(item => item.Alias == alias);
+            if (index < 0)
+                throw new ArgumentException($"Sensor '{alias}' was not found.", nameof(alias));
+
+            var existing = _config.Sensors[index];
+            sensor.Platform = existing.Platform;
+            sensor.Identifier = existing.Identifier;
+            EnsureSensor(sensor, alias);
+            _config.Sensors[index] = sensor;
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void DeleteSensor(string alias)
+    {
+        lock (_configLock)
+        {
+            if (_config.Sensors.RemoveAll(item => item.Alias == alias) == 0)
+                throw new ArgumentException($"Sensor '{alias}' was not found.", nameof(alias));
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void AddControl(ControlConfig control)
+    {
+        lock (_configLock)
+        {
+            control.RPMCalibration ??= [];
+            EnsureControl(control, null);
+            _config.Controls.Add(control);
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void UpdateControl(string alias, ControlConfig control)
+    {
+        lock (_configLock)
+        {
+            var index = _config.Controls.FindIndex(item => item.Alias == alias);
+            if (index < 0)
+                throw new ArgumentException($"Control '{alias}' was not found.", nameof(alias));
+
+            var existing = _config.Controls[index];
+            control.Platform = existing.Platform;
+            control.Identifier = existing.Identifier;
+            control.RPMCalibration = existing.RPMCalibration;
+            control.ThermalMinControl = existing.ThermalMinControl;
+            EnsureControl(control, alias);
+            _config.Controls[index] = control;
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void DeleteControl(string alias)
+    {
+        lock (_configLock)
+        {
+            if (_config.Controls.RemoveAll(item => item.Alias == alias) == 0)
+                throw new ArgumentException($"Control '{alias}' was not found.", nameof(alias));
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void ReorderSensors(IReadOnlyList<string> aliases)
+    {
+        lock (_configLock)
+        {
+            _config.Sensors = Reorder(_config.Sensors, aliases, sensor => sensor.Alias);
+            WriteConfigUnlocked();
+        }
+    }
+
+    public void ReorderControls(IReadOnlyList<string> aliases)
+    {
+        lock (_configLock)
+        {
+            _config.Controls = Reorder(_config.Controls, aliases, control => control.Alias);
+            WriteConfigUnlocked();
+        }
+    }
+
+    private static List<T> Reorder<T>(List<T> items, IReadOnlyList<string> aliases, Func<T, string> aliasOf)
+    {
+        if (aliases.Count != items.Count)
+            throw new ArgumentException("Alias list does not match the current entries.");
+
+        var byAlias = items.ToDictionary(aliasOf);
+        var seen = new HashSet<string>();
+        var ordered = new List<T>(aliases.Count);
+        foreach (var alias in aliases)
+        {
+            if (string.IsNullOrWhiteSpace(alias) || !seen.Add(alias) || !byAlias.TryGetValue(alias, out var item))
+                throw new ArgumentException("Alias list does not match the current entries.");
+            ordered.Add(item);
+        }
+
+        return ordered;
+    }
+
+    private void EnsureSensor(SensorConfig sensor, string? ignoreAlias)
+    {
+        if (string.IsNullOrWhiteSpace(sensor.Alias))
+            throw new ArgumentException("Alias must not be empty.");
+        if (string.IsNullOrWhiteSpace(sensor.Identifier))
+            throw new ArgumentException("Identifier must not be empty.");
+        if (string.IsNullOrWhiteSpace(sensor.Platform))
+            throw new ArgumentException("Platform must not be empty.");
+
+        foreach (var existing in _config.Sensors)
+        {
+            if (ignoreAlias != null && existing.Alias == ignoreAlias)
+                continue;
+            if (existing.Alias == sensor.Alias)
+                throw new ArgumentException($"Duplicate alias '{sensor.Alias}'.");
+            if (existing.Identifier == sensor.Identifier)
+                throw new ArgumentException($"Duplicate identifier '{sensor.Identifier}'.");
+        }
+    }
+
+    private void EnsureControl(ControlConfig control, string? ignoreAlias)
+    {
+        if (string.IsNullOrWhiteSpace(control.Alias))
+            throw new ArgumentException("Alias must not be empty.");
+        if (string.IsNullOrWhiteSpace(control.Identifier))
+            throw new ArgumentException("Identifier must not be empty.");
+        if (string.IsNullOrWhiteSpace(control.Platform))
+            throw new ArgumentException("Platform must not be empty.");
+
+        foreach (var existing in _config.Controls)
+        {
+            if (ignoreAlias != null && existing.Alias == ignoreAlias)
+                continue;
+            if (existing.Alias == control.Alias)
+                throw new ArgumentException($"Duplicate alias '{control.Alias}'.");
+            if (existing.Identifier == control.Identifier)
+                throw new ArgumentException($"Duplicate identifier '{control.Identifier}'.");
+            if (!string.IsNullOrEmpty(control.RPMSensor)
+                && !string.IsNullOrEmpty(existing.RPMSensor)
+                && existing.RPMSensor == control.RPMSensor)
+                throw new ArgumentException($"Duplicate RPMSensor '{control.RPMSensor}'.");
+        }
+    }
+
     private void WriteConfigUnlocked()
     {
         var jsonString = JsonSerializer.Serialize(_config, new JsonSerializerOptions { WriteIndented = true });
@@ -181,6 +338,14 @@ public class ConfigHelper
     public HashSet<string> ControlRPMSensorIdentifiers => _controlRPMSensorIdentifiers;
 
     public Config Config => _config;
+
+    internal string ConfigFilePath => _configFilePath;
+
+    public (List<SensorConfig> Sensors, List<ControlConfig> Controls) SnapshotEntries()
+    {
+        lock (_configLock)
+            return (_config.Sensors.ToList(), _config.Controls.ToList());
+    }
 
     public float? ConvertRPMToPercent(string alias, float rpm)
     {

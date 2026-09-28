@@ -11,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Prometheus;
 using Serilog;
 
-public class StatusServer : IHostedService, IDisposable
+public partial class StatusServer : IHostedService, IDisposable
 {
     private static readonly CollectorRegistry Registry = Metrics.NewCustomRegistry();
     private static readonly Gauge SensorGauge = Metrics.WithCustomRegistry(Registry).CreateGauge(
@@ -20,15 +20,17 @@ public class StatusServer : IHostedService, IDisposable
         "control_output", "Current control output (%)", labelNames: ["name"]);
 
     private readonly ConfigHelper _config;
+    private readonly HardwareCatalog _hardwareCatalog;
     private readonly IStatusSnapshot _statusSnapshot;
     private HttpListener? _httpListener;
     private Task? _listenerTask;
     private CancellationTokenSource? _cts;
     private bool _disposed;
 
-    public StatusServer(ConfigHelper config, IStatusSnapshot statusSnapshot)
+    public StatusServer(ConfigHelper config, HardwareCatalog hardwareCatalog, IStatusSnapshot statusSnapshot)
     {
         _config = config;
+        _hardwareCatalog = hardwareCatalog;
         _statusSnapshot = statusSnapshot;
     }
 
@@ -120,6 +122,26 @@ public class StatusServer : IHostedService, IDisposable
             else if (path == "/api/profile")
             {
                 HandleSetProfile(context);
+            }
+            else if (path == "/api/config" && string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+            {
+                HandleApiConfig(response);
+            }
+            else if (path == "/api/hardware" && string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+            {
+                HandleApiHardware(response);
+            }
+            else if (path == "/config")
+            {
+                HandleHardwarePage(response);
+            }
+            else if (TryOrderRoute(path, out var orderCollection))
+            {
+                HandleReorder(context, orderCollection);
+            }
+            else if (TryHardwareRoute(path, out var collection, out var alias))
+            {
+                HandleHardwareEntry(context, collection, alias);
             }
             else if (path == "/metrics")
             {
@@ -297,6 +319,8 @@ public class StatusServer : IHostedService, IDisposable
         .header h1 { margin-bottom: 5px; font-size: 28px; }
         .header p { opacity: 0.9; font-size: 14px; }
         .content { padding: 30px; }
+        .page-links { margin-top: 14px; font-size: 14px; }
+        .page-links a { color: #667eea; }
         .section { margin-bottom: 40px; }
         .section h2 { font-size: 20px; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
@@ -313,6 +337,7 @@ public class StatusServer : IHostedService, IDisposable
         .info-item-label { font-size: 12px; color: #666; }
         .info-item-value { font-size: 13px; color: #333; font-weight: 600; margin-top: 4px; }
         .alerts { background: #fff4f4; color: #9b1c1c; border: 1px solid #f3c1c1; border-radius: 6px; padding: 12px 14px; margin-bottom: 20px; font-weight: 600; white-space: pre-line; }
+        .profile-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 16px 30px 0; }
         .profile-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
         .profile-btn { border: 1px solid #c5cdf5; background: white; color: #333; border-radius: 4px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .profile-btn.profile-active { background: #667eea; color: white; border-color: #667eea; }
@@ -325,6 +350,7 @@ public class StatusServer : IHostedService, IDisposable
             <h1>CoolingControl Status</h1>
             <p id='connection-status'>Connecting...</p>
         </div>
+        <div id='profile-bar' class='profile-bar' style='display:none'></div>
         <div class='content' id='content'>
             <p style='color:#999;'>Loading...</p>
         </div>
@@ -354,6 +380,7 @@ public class StatusServer : IHostedService, IDisposable
                     buildDashboard(data);
                     initialized = true;
                 }
+                updateProfileButtons(data);
                 updateMetrics(data);
                 updateCharts(data);
                 document.getElementById('connection-status').textContent = 'Connected';
@@ -382,9 +409,6 @@ public class StatusServer : IHostedService, IDisposable
                 ).join('') +
                 '</div>';
 
-            const profileInfoHtml = (data.profiles && data.profiles.length > 0)
-                ? '<div class="info-item-label">Profile</div><div class="info-item-value profile-buttons" id="profile-buttons"></div>'
-                : '';
             const contentHtml = '<div id="alerts" class="alerts" style="display:none"></div>' +
                 '<div class="section"><h2>Current Values</h2><div class="metrics-grid" id="metrics-grid"></div></div>' +
                 '<div class="section"><h2>Trends (5 Minutes)</h2>' + chartsHtml + '</div>' +
@@ -392,7 +416,7 @@ public class StatusServer : IHostedService, IDisposable
                 '<div class="info-item-label">Last Update</div><div class="info-item-value" id="last-update"></div>' +
                 '<div class="info-item-label">Update Interval</div><div class="info-item-value" id="update-interval"></div>' +
                 '<div class="info-item-label">Script</div><div class="info-item-value" id="script-path"></div>' +
-                profileInfoHtml + '</div></div>';
+                '</div><p class="page-links"><a href="/config">Hardware config</a></p></div>';
 
             document.getElementById('content').innerHTML = contentHtml;
         }
@@ -425,7 +449,6 @@ public class StatusServer : IHostedService, IDisposable
             if (intervalEl) intervalEl.textContent = data.updateInterval + ' ms';
             const scriptEl = document.getElementById('script-path');
             if (scriptEl) scriptEl.textContent = data.scriptPath;
-            updateProfileButtons(data);
             updateAlerts(data);
         }
 
@@ -445,9 +468,16 @@ public class StatusServer : IHostedService, IDisposable
         }
 
         function updateProfileButtons(data) {
-            const profileEl = document.getElementById('profile-buttons');
-            if (!profileEl || !data.profiles) return;
-            profileEl.innerHTML = data.profiles.map(function (name) {
+            const profileEl = document.getElementById('profile-bar');
+            if (!profileEl) return;
+            const profiles = data.profiles || [];
+            if (profiles.length === 0) {
+                profileEl.style.display = 'none';
+                profileEl.innerHTML = '';
+                return;
+            }
+            profileEl.style.display = 'flex';
+            profileEl.innerHTML = profiles.map(function (name) {
                 const active = name === data.activeProfile ? ' profile-active' : '';
                 return '<button type="button" class="profile-btn' + active + '">' + escapeHtml(name) + '</button>';
             }).join('');
