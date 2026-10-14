@@ -397,6 +397,7 @@ public partial class StatusServer
             <script>
                 let config = { sensors: [], controls: [] };
                 let catalog = null;
+                let catalogRequested = false;
 
                 function text(value) {
                     return value === null || value === undefined || value === '' ? '' : String(value);
@@ -411,6 +412,10 @@ public partial class StatusServer
                 async function loadConfig() {
                     const response = await fetch('/api/config');
                     config = await response.json();
+                    if (!catalogRequested) {
+                        catalogRequested = true;
+                        await ensureCatalog();
+                    }
                     render();
                 }
 
@@ -437,33 +442,55 @@ public partial class StatusServer
                         '<button type="button" data-move-' + kind + '="down" data-alias="' + escapeHtml(alias) + '" aria-label="Move down"' + down + '>↓</button>';
                 }
 
+                function channelLabel(channel) {
+                    return channel.hardware + ' / ' + channel.name + ' (' + channel.type + ')';
+                }
+
+                function configuredChannelLabel(item) {
+                    const match = (catalog || []).find(function (channel) {
+                        return channel.platform === item.platform && channel.identifier === item.identifier;
+                    });
+                    return match ? channelLabel(match) : item.identifier;
+                }
+
+                function rpmSensorLabel(control) {
+                    if (!control.rpmSensor) return 'none';
+                    const match = (catalog || []).find(function (item) {
+                        return item.platform === control.platform &&
+                            item.identifier === control.rpmSensor &&
+                            !item.isControl &&
+                            String(item.type).toLowerCase() === 'fan';
+                    });
+                    return match ? match.name : control.rpmSensor;
+                }
+
                 function sensorTable(sensors) {
                     if (sensors.length === 0) return '<p>No sensors configured.</p>';
                     const rows = sensors.map(function (sensor, index) {
                         return '<tr><td>' + escapeHtml(sensor.alias) + '</td><td>' + escapeHtml(sensor.platform) +
-                            '</td><td>' + escapeHtml(sensor.identifier) + '</td><td>' + escapeHtml(sensor.alertMax) +
+                            '</td><td>' + escapeHtml(configuredChannelLabel(sensor)) + '</td><td>' + escapeHtml(sensor.alertMax) +
                             '</td><td>' + moveButtons('sensor', sensor.alias, index, sensors.length) +
                             '<button type="button" data-edit-sensor="' + escapeHtml(sensor.alias) +
                             '">Edit</button><button type="button" data-delete-sensor="' + escapeHtml(sensor.alias) +
                             '">Delete</button></td></tr>';
                     }).join('');
-                    return '<table><tr><th>Alias</th><th>Platform</th><th>Identifier</th><th>Alert max</th><th></th></tr>' + rows + '</table>';
+                    return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Alert max</th><th></th></tr>' + rows + '</table>';
                 }
 
                 function controlTable(controls) {
                     if (controls.length === 0) return '<p>No controls configured.</p>';
                     const rows = controls.map(function (control, index) {
                         return '<tr><td>' + escapeHtml(control.alias) + '</td><td>' + escapeHtml(control.platform) +
-                            '</td><td>' + escapeHtml(control.identifier) + '</td><td>' + escapeHtml(control.stepUp) +
+                            '</td><td>' + escapeHtml(configuredChannelLabel(control)) + '</td><td>' + escapeHtml(control.stepUp) +
                             '</td><td>' + escapeHtml(control.stepDown) + '</td><td>' + escapeHtml(control.minStart) +
                             '</td><td>' + escapeHtml(control.minStop) + '</td><td>' + (control.zeroRpm ? 'yes' : 'no') +
-                            '</td><td>' + escapeHtml(control.rpmSensor) + '</td><td>' + (control.beatDetune ? 'yes' : 'no') +
+                            '</td><td>' + escapeHtml(rpmSensorLabel(control)) + '</td><td>' + (control.beatDetune ? 'yes' : 'no') +
                             '</td><td>' + moveButtons('control', control.alias, index, controls.length) +
                             '<button type="button" data-edit-control="' + escapeHtml(control.alias) +
                             '">Edit</button><button type="button" data-delete-control="' + escapeHtml(control.alias) +
                             '">Delete</button></td></tr>';
                     }).join('');
-                    return '<table><tr><th>Alias</th><th>Platform</th><th>Identifier</th><th>Step up</th><th>Step down</th><th>Min start</th><th>Min stop</th><th>Zero RPM</th><th>RPM sensor</th><th>Beat detune</th><th></th></tr>' + rows + '</table>';
+                    return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Step up</th><th>Step down</th><th>Min start</th><th>Min stop</th><th>Zero RPM</th><th>RPM sensor</th><th>Beat detune</th><th></th></tr>' + rows + '</table>';
                 }
 
                 async function ensureCatalog() {
@@ -489,6 +516,7 @@ public partial class StatusServer
 
                 async function showAdd(kind) {
                     const channels = await ensureCatalog();
+                    if (channels.length > 0) render();
                     const wantControl = kind === 'controls';
                     const existing = (wantControl ? config.controls : config.sensors).map(function (item) {
                         return item.platform + '\n' + item.identifier;
@@ -503,12 +531,12 @@ public partial class StatusServer
                         return;
                     }
                     const options = choices.map(function (channel, index) {
-                        return '<option value="' + index + '">' + escapeHtml(channel.hardware + ' / ' + channel.name + ' (' + channel.type + ')') + '</option>';
+                        return '<option value="' + index + '">' + escapeHtml(channelLabel(channel)) + '</option>';
                     }).join('');
                     setForm(kind,
                         '<div class="card"><h2>Add ' + (wantControl ? 'control' : 'sensor') + '</h2>' +
                         '<label>Channel</label><select id="channel">' + options + '</select>' +
-                        '<div id="add-fields"></div><button type="button" id="save-add" style="display:block;margin-top:16px">Save</button></div>');
+                        '<div id="add-fields"></div><div style="margin-top:16px"><button type="button" id="save-add">Save</button><button type="button" id="cancel-add">Cancel</button></div></div>');
                     const select = document.getElementById('channel');
                     function drawFields() {
                         const channel = choices[Number(select.value)];
@@ -535,6 +563,9 @@ public partial class StatusServer
                     }
                     select.addEventListener('change', drawFields);
                     drawFields();
+                    document.getElementById('cancel-add').addEventListener('click', function () {
+                        clearForms();
+                    });
                     document.getElementById('save-add').addEventListener('click', async function () {
                         const channel = choices[Number(select.value)];
                         const body = {
@@ -579,7 +610,7 @@ public partial class StatusServer
                     const sensor = findSensor(alias);
                     if (!sensor) return;
                     setForm('sensors',
-                        '<div class="card"><h2>Edit sensor</h2><p>' + escapeHtml(sensor.platform) + ' ' + escapeHtml(sensor.identifier) +
+                        '<div class="card"><h2>Edit sensor</h2><p>' + escapeHtml(configuredChannelLabel(sensor)) +
                         '</p><label>Alias</label><input id="alias" value="' + escapeHtml(sensor.alias) +
                         '"><label>Alert max</label><input id="alert-max" value="' + escapeHtml(sensor.alertMax) +
                         '"><button type="button" id="save-edit" style="display:block;margin-top:12px">Save</button></div>');
@@ -606,7 +637,8 @@ public partial class StatusServer
                 async function editControl(alias) {
                     const control = findControl(alias);
                     if (!control) return;
-                    await ensureCatalog();
+                    const channels = await ensureCatalog();
+                    if (channels.length > 0) render();
                     const fans = (catalog || []).filter(function (item) {
                         return item.platform === control.platform && !item.isControl && String(item.type).toLowerCase() === 'fan';
                     });
@@ -615,7 +647,7 @@ public partial class StatusServer
                         return '<option value="' + escapeHtml(fan.identifier) + '"' + selected + '>' + escapeHtml(fan.name) + '</option>';
                     }).join('');
                     setForm('controls',
-                        '<div class="card"><h2>Edit control</h2><p>' + escapeHtml(control.platform) + ' ' + escapeHtml(control.identifier) +
+                        '<div class="card"><h2>Edit control</h2><p>' + escapeHtml(configuredChannelLabel(control)) +
                         '</p><label>Alias</label><input id="alias" value="' + escapeHtml(control.alias) +
                         '"><label>Step up</label><input id="step-up" value="' + escapeHtml(control.stepUp) +
                         '"><label>Step down</label><input id="step-down" value="' + escapeHtml(control.stepDown) +
