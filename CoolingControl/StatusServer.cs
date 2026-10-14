@@ -319,8 +319,6 @@ public partial class StatusServer : IHostedService, IDisposable
         .header h1 { margin-bottom: 5px; font-size: 28px; }
         .header p { opacity: 0.9; font-size: 14px; }
         .content { padding: 30px; }
-        .page-links { margin-top: 14px; font-size: 14px; }
-        .page-links a { color: #667eea; }
         .section { margin-bottom: 40px; }
         .section h2 { font-size: 20px; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
@@ -337,9 +335,10 @@ public partial class StatusServer : IHostedService, IDisposable
         .info-item-label { font-size: 12px; color: #666; }
         .info-item-value { font-size: 13px; color: #333; font-weight: 600; margin-top: 4px; }
         .alerts { background: #fff4f4; color: #9b1c1c; border: 1px solid #f3c1c1; border-radius: 6px; padding: 12px 14px; margin-bottom: 20px; font-weight: 600; white-space: pre-line; }
-        .profile-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 16px 30px 0; }
-        .profile-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-        .profile-btn { border: 1px solid #c5cdf5; background: white; color: #333; border-radius: 4px; padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .profile-bar { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; padding: 16px 30px 0; }
+        .profile-buttons { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0; }
+        .profile-bar a { margin-left: auto; flex: 0 0 auto; color: #667eea; font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+        .profile-btn { border: 1px solid #c5cdf5; background: white; color: #333; border-radius: 4px; padding: 4px 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
         .profile-btn.profile-active { background: #667eea; color: white; border-color: #667eea; }
         @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .chart-container { height: 200px; } }
     </style>
@@ -350,7 +349,10 @@ public partial class StatusServer : IHostedService, IDisposable
             <h1>CoolingControl Status</h1>
             <p id='connection-status'>Connecting...</p>
         </div>
-        <div id='profile-bar' class='profile-bar' style='display:none'></div>
+        <div class='profile-bar'>
+            <div id='profile-buttons' class='profile-buttons'></div>
+            <a href='/config'>Hardware config</a>
+        </div>
         <div class='content' id='content'>
             <p style='color:#999;'>Loading...</p>
         </div>
@@ -416,7 +418,7 @@ public partial class StatusServer : IHostedService, IDisposable
                 '<div class="info-item-label">Last Update</div><div class="info-item-value" id="last-update"></div>' +
                 '<div class="info-item-label">Update Interval</div><div class="info-item-value" id="update-interval"></div>' +
                 '<div class="info-item-label">Script</div><div class="info-item-value" id="script-path"></div>' +
-                '</div><p class="page-links"><a href="/config">Hardware config</a></p></div>';
+                '</div></div>';
 
             document.getElementById('content').innerHTML = contentHtml;
         }
@@ -468,15 +470,9 @@ public partial class StatusServer : IHostedService, IDisposable
         }
 
         function updateProfileButtons(data) {
-            const profileEl = document.getElementById('profile-bar');
+            const profileEl = document.getElementById('profile-buttons');
             if (!profileEl) return;
             const profiles = data.profiles || [];
-            if (profiles.length === 0) {
-                profileEl.style.display = 'none';
-                profileEl.innerHTML = '';
-                return;
-            }
-            profileEl.style.display = 'flex';
             profileEl.innerHTML = profiles.map(function (name) {
                 const active = name === data.activeProfile ? ' profile-active' : '';
                 return '<button type="button" class="profile-btn' + active + '">' + escapeHtml(name) + '</button>';
