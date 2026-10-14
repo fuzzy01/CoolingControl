@@ -1,8 +1,36 @@
 # CoolingControl Documentation
 
+## Contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Using the Pre-Built Installer](#using-the-pre-built-installer)
+  - [Building the Application](#building-the-application)
+- [First setup after installation](#first-setup-after-installation)
+- [Usage](#usage)
+  - [Running in Console Mode](#running-in-console-mode)
+  - [Running as a Service](#running-as-a-service)
+  - [Monitoring Status (HTTP Dashboard)](#monitoring-status-http-dashboard)
+  - [Tray](#tray)
+  - [Listing Sensors](#listing-sensors)
+  - [Calibrating Fans and Pumps](#calibrating-fans-and-pumps)
+  - [Temperature calibration (experimental)](#temperature-calibration-experimental)
+  - [Beat detune](#beat-detune)
+- [Plugin Support](#plugin-support)
+  - [How it works](#how-it-works)
+  - [Writing a plugin](#writing-a-plugin)
+  - [Using a plugin sensor in config.json](#using-a-plugin-sensor-in-configjson)
+  - [Libre Hardware Monitor](#libre-hardware-monitor)
+  - [DummyPlugin](#dummyplugin)
+  - [DS18B20Plugin](#ds18b20plugin)
+- [Configuration](#configuration)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Overview
 
-`CoolingControl` is an application for controlling fans and pumps based on any system sensors with flexible control logic customized for your PC build. Unlike traditional fan control software, `CoolingControl` offers unparalleled flexibility with Lua-based scripting, allowing users to define custom logic for any sensor, not just temperature. You can write your own control logic from scratch or use one of the examples. A Lua library with common algorithms is also included. The application runs as a Windows service or in console mode, leveraging Libre Hardware Monitor for hardware access.
+`CoolingControl` is an application for controlling fans and pumps based on any system sensors with flexible control logic customized for your PC build. Unlike traditional fan control software, `CoolingControl` offers unparalleled flexibility with Lua-based scripting, allowing users to define custom logic for any sensor, not just temperature. You can write your own control logic from scratch or use one of the examples. A Lua library with common algorithms is also included. The application runs as a Windows service or in console mode. Hardware access comes from plugins. Libre Hardware Monitor ships as the included `LHM` plugin.
 
 If you have an AIO cooler, it is preferred using the coolant temperature sensor for fan control. If your AIO does not have a coolant temperature sensor, it is recommended attaching a thermal sensor to the outgoing tube at the radiator and connecting it to a motherboard connector (most Asus motherboards has a connector labeled "T Sensor"). Some sensors that work and can be easily purchased: XSPC Wire Sensor 10k, Phobya 10k Temperature Sensor.
 
@@ -19,24 +47,24 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
   - **Hysteresis**: Prevents rapid fan/pump speed changes, ensuring stability.
   - **PID control**: PID control for AIO fan speed based on coolant temperature.
   - **Global State**: Maintains state across control updates.
-- **Plugin Support**: Extend hardware access by dropping a plugin's DLL (and its dependencies) into its own subdirectory under `plugins/`. Any class implementing `IPlatformAdapter` and decorated with `[PlatformAdapter("Name")]` is discovered automatically at startup. Individual sensors and controls can be assigned to different platforms via the `Platform` field in `config.json`.
+- **Plugin Support**: Every hardware source is a plugin. Each one lives in its own subdirectory under `plugins/`, as a DLL plus its private dependencies. A class that implements `IPlatformAdapter` and is decorated with `[PlatformAdapter("Name")]` is loaded at startup. Libre Hardware Monitor is the included `LHM` plugin. Set `Platform` on a sensor or control to choose which plugin serves it.
 - **Service Management**: Runs as a Windows service or in console mode.
 - **Lifecycle events**: Service startup/shutdown and power events (suspend/resume) trigger Lua callbacks so the script can be notified and manage state.
 - **Resource Cleanup**: Proper releasing of hardware resources to BIOS control on service stop.
-- **Installer**: Inno Setup based installer preserves user-modified files `config.json` and `cooling_control.lua`.
+- **Installer**: Inno Setup based installer preserves user-modified `config.json` and `cooling_control.lua`. Sample scripts and `config_sample.json` are replaced on upgrade.
 
 ## Installation
 
 ### Prerequisites
 
 - Windows 10 or later.
-- .NET 8 runtime  or .NET 10 runtime (optional).
+- The .NET 8 runtime for `CoolingControlSetup-net8.exe`, or the .NET 10 runtime for `CoolingControlSetup-net10.exe`.
 - Administrator privileges for installation and service management.
-- Compatible hardware supported by Libre Hardware Monitor.
+- Hardware supported by a loaded plugin. The included `LHM` plugin uses Libre Hardware Monitor.
 
 ### Using the Pre-Built Installer
 
-1. Download the installer `CoolingControlSetup-net8.exe` from Releases. Alternatively, if you have .NET 9 installed (optional), you can use `CoolingControlSetup-net9.exe`.
+1. Download `CoolingControlSetup-net8.exe` from Releases when the machine has the .NET 8 runtime, or `CoolingControlSetup-net10.exe` when it has the .NET 10 runtime.
 2. Run the installer as administrator.
 3. Follow the wizard:
    - Installs to `C:\Program Files\CoolingControl`.
@@ -51,7 +79,7 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
    ```
 
 2. Build the Project
-   - Open the solution directory in VSCode and build the installer with `Build Inno Setup Installer net8.0` task.
+   - Open the solution directory in VSCode and build the installer with the `Build Inno Setup Installer net8.0` task or the `Build Inno Setup Installer net10.0` task.
 3. Run the installer as administrator.
 4. Follow the wizard:
    - Installs to `C:\Program Files\CoolingControl`.
@@ -59,11 +87,11 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
 
 ## First setup after installation
 
-The installer creates a bare bone `config.json` and `cooling_control.lua` in the config directory.Follow the following steps to configure the application. See the details in usage section below.
+The installer creates a bare-bones `config.json` and `cooling_control.lua` in the config directory. Follow the steps below to configure the application. See the details in the usage section.
 
-1. **Stop the service**: Run `sc.exe stop CoolingControl` to stop the service before making changes.
-2. **List available sensors**: Run `CoolingControl.exe list-sensors` to identify available sensors (e.g., CPU, GPU temperatures and power) and controls (e.g., fans and pumps)
-3. **Edit config.json**: Modify `config.json` to set up sensors and controls. Define sensors and controls using aliases and hardware IDs from the list-sensors output.
+1. **Stop the service** before `list-sensors`, `calibrate`, or editing `config.json` by hand: `sc.exe stop CoolingControl`. The hardware config page can be used while the service is running.
+2. **List available sensors**: Run `CoolingControl.exe list-sensors` to identify available sensors (e.g., CPU, GPU temperatures and power) and controls (e.g., fans and pumps). Each line includes the platform, hardware name, channel name, sensor type, identifier, and whether the channel is a control.
+3. **Edit config.json**: Modify `config.json` to set up sensors and controls. Define sensors and controls using aliases and hardware IDs from the list-sensors output. The hardware config page at `http://localhost:19999/config` can add, edit, delete, and reorder the same entries while the service is running. Restart the service before a saved entry is read or driven. Calibration points and `ThermalMinControl` are not edited on that page.
 
 - For each control (fan/pump), specify the following:
   - `Alias`: A user-friendly name for the fan/pump (e.g., "AIO Fan").
@@ -146,7 +174,9 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `ScriptPath`: Path to the Lua script for fan control logic (e.g., `config/cooling_control.lua`).
   - `UpdateIntervalMs`: Interval in milliseconds between reading sensors, running control logic and setting controls (default: 1000 ms).
   - `LogLevel`: Logging level (e.g., "Information", "Debug").
-  - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10). When the count in that window reaches three quarters of this limit, the status page lists an alert and the tray shows a Windows toast.
+  - `MaxControlLoopErrors`: Number of errors allowed within a 60-second window before the service stops. Increase this to tolerate brief sensor glitches (default: 10). When the count in that window reaches the ceiling of three quarters of this limit, the status page lists an alert and the tray shows a Windows toast.
+  - `EnableCSVLogging`: When true, each successful control tick appends one row to `logs\cooling_control_log.csv`. The row is a timestamp, the sensor readings, and the control duties requested by the script after beat detune and before ramp (default: false).
+  - `DisableLHMReleaseOnSuspend`: When false, the `LHM` plugin closes Libre Hardware Monitor on suspend and opens it again on resume. Set to true to leave that session open across suspend (default: false).
   - `StatusServerEnabled`: Enable or disable the HTTP status server (default: true).
   - `StatusServerPort`: Port for the HTTP status server dashboard (default: 19999).
   - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network (`"0.0.0.0"` is not a valid HTTP.sys prefix).
@@ -156,7 +186,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
   - `Alias`: A user-friendly name for the sensor (e.g., "CPU Package").
-  - `AlertMax`: Optional maximum for this sensor. A reading at or above it raises an alert. The alert stays until the reading falls 5% below that maximum, so a load test does not raise a new toast on every small change. Omit it to leave the sensor out of temperature alerts. A missing reading does not alert. Example: `"AlertMax": 90` on the CPU Package sensor.
+  - `AlertMax`: Optional maximum for this sensor. A reading at or above it raises an alert. The alert stays until the reading falls below that maximum by 5% or by 1, whichever drop is larger, so a load test does not raise a new toast on every small change. Omit it to leave the sensor out of temperature alerts. A missing reading does not alert. Example: `"AlertMax": 90` on the CPU Package sensor. An `AlertMax` of 60 clears below 57.
   - `Identifier`: The hardware ID of the sensor (e.g., "/intelcpu/0/temperature/22").
   - `Platform`: The platform adapter that provides this sensor or control. Defaults to `"LHM"` (Libre Hardware Monitor). Set to the name of a plugin adapter to route this entry to a plugin (see [Plugin Support](#plugin-support)).
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
@@ -168,7 +198,7 @@ The installer creates a bare bone `config.json` and `cooling_control.lua` in the
   - `BeatDetune`: When true, this fan takes part in beat detune (default: false). Leave it false on pumps and on matched GPU fans.
 
 4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
-5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (cooling_control_aio_sample.lua, cooling_control_aircooling_sample.lua, cooling_control_profiles_sample.lua) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script. Controls with `BeatDetune` set are also spread apart in RPM by the framework after the script returns. See [Beat detune](#beat-detune).
+5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (`cooling_control_aio_sample.lua`, `cooling_control_aio_with_sensor_sample.lua`, `cooling_control_aircooling_sample.lua`, `cooling_control_gpu_sample.lua`, `cooling_control_profiles_sample.lua`, `cooling_control_cfg_access_sample.lua`) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script. Controls with `BeatDetune` set are also spread apart in RPM by the framework after the script returns. See [Beat detune](#beat-detune).
 
 **Example for AIO without coolant temperature sensor**:
 
@@ -302,7 +332,7 @@ end
   CoolingControl.exe
   ```
 
-- Outputs logs to console and `logs\cooling_control.log`.
+- Outputs logs to the console and to a daily file `logs\cooling_controlYYYYMMDD.log`.
 - Press **Ctrl+C** to stop.
 
 ### Running as a Service
@@ -316,7 +346,7 @@ end
   sc.exe start CoolingControl
   ```
 
-- Logs to `logs\cooling_control.log` in the application directory.
+- Logs to a daily file `logs\cooling_controlYYYYMMDD.log` in the application directory.
 
 ### Monitoring Status (HTTP Dashboard)
 
@@ -329,7 +359,7 @@ end
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
 - JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
-- The hardware config page is at `http://localhost:19999/config`. It lists the sensors and controls in `config.json`. You can edit their parameters, delete them, or add one by picking a channel from the hardware catalog. Calibration points are not edited here. `list-sensors` still prints the discovery log when the service is stopped. Add, edit, and delete are accepted only from the same machine. Restart the service before a saved entry is read or driven.
+- The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. Restart the service before a saved entry is read or driven. `list-sensors` still prints the discovery log when the service is stopped.
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
@@ -355,7 +385,7 @@ The installer can add a login shortcut for every user. Uncheck "Start CoolingCon
     CoolingControl.exe list-sensors
   ```
 
-- This command lists all available sensors and their names, which you can use in the `config.json` file to configure sensors and controls.
+- Each log line is one channel: platform, hardware name, channel name, sensor type, identifier, and whether it is a control. Use the identifier and platform in `config.json`. The same list is what the hardware config page offers when you add a sensor or control.
 
 ### Calibrating Fans and Pumps
 
@@ -377,6 +407,16 @@ The installer can add a login shortcut for every user. Uncheck "Start CoolingCon
 - The calibration data includes the minimum start and stop RPM, as well as the RPM curve for each fan and pump.
 - The calibration data is used to convert RPM values to percentages for the fan control logic.
 
+### Temperature calibration (experimental)
+
+`calibrate-temp` finds a control duty that holds one sensor at or below a target temperature. Stop the service first. The CPU stress load uses AVX2.
+
+```cmd
+CoolingControl.exe calibrate-temp "AIO Fan" "CPU Package" 85
+```
+
+The target is parsed with a dot as the decimal separator. When the run finishes, the program asks whether to save the result as `ThermalMinControl` on that control. The value is stored in `config.json` and exposed to Lua as `thermal_min_control`. The service does not apply it by itself, and the hardware config page does not edit it.
+
 ### Beat detune
 
 Fans whose speeds sit a few tens of RPM apart produce a slow beat. Set `BeatDetune` to true on each fan that should take part. After the script returns, CoolingControl sorts those fans by requested RPM and raises one when it is closer than `BeatDetuneMinSeparationRpm` (default 150) to the fan just below it. It never lowers a fan. A raise stops at `BeatDetuneMaxNudgeRpm` (default 200) and at the top of that fan's RPM calibration.
@@ -387,23 +427,36 @@ Fans already at least that far apart are left alone. Two fans whose requested sp
 
 ## Plugin Support
 
-CoolingControl can load external hardware adapters from a `plugins/` subdirectory next to the executable. This allows adding sensor and control sources beyond Libre Hardware Monitor without modifying the application.
+Every hardware source, including Libre Hardware Monitor, is a plugin. Plugins are loaded from `plugins/` next to `CoolingControl.exe`. An installed copy looks in `C:\Program Files\CoolingControl\plugins`.
 
 ### How it works
 
-Each plugin lives in its own subdirectory under `plugins/`, named to match its main DLL, e.g. `plugins/MyAdapter/MyAdapter.dll` plus any of its private dependency DLLs. Keeping every plugin in its own folder isolates its dependencies from other plugins, so two plugins can each ship a different version of the same dependency without conflicts.
+Each plugin lives in its own subdirectory, and the DLL name matches the directory name: `plugins/MyAdapter/MyAdapter.dll`, plus any private dependency DLLs in that same folder. A subdirectory without that DLL is skipped. Separate folders keep dependency versions from colliding when two plugins ship different builds of the same library.
 
-At startup, every subdirectory of `plugins/` is scanned for a DLL named after that subdirectory (e.g. `plugins/MyAdapter/MyAdapter.dll`); a subdirectory without a matching DLL is skipped with a warning. Any class in that DLL that:
+At startup the loader reflects over that DLL. A class is loaded when all of the following are true:
 
-1. Implements `IPlatformAdapter`
-2. Is decorated with `[PlatformAdapter("YourName")]`
-3. Has a constructor accepting `(ConfigHelper config)` or a parameterless constructor
+1. It implements `IPlatformAdapter`.
+2. It is decorated with `[PlatformAdapter("YourName")]`.
+3. It has a constructor that accepts `(ConfigHelper config)`, or a parameterless constructor. The `ConfigHelper` constructor is used when both exist.
 
-…is instantiated and registered under its declared platform name. Individual sensors and controls are routed to the correct adapter via the `Platform` field in `config.json`.
+The platform name on the attribute is the name you put in `Platform`. A second plugin that declares the same name is skipped. A sensor or control whose `Platform` has no loaded plugin is logged as an error and is not read or driven. `Platform` defaults to `"LHM"`.
+
+`GetHardwareCatalog` returns the channels `list-sensors` prints and the hardware config page offers when you add an entry. Each channel is a `HardwareChannel`:
+
+| Field | Role |
+| --- | --- |
+| `Platform` | The adapter's platform name. |
+| `Identifier` | The value stored in `config.json`. |
+| `Name` | The channel name shown in the add list. |
+| `HardwareName` | The device name shown before the channel name. |
+| `SensorType` | Shown in parentheses in the add list, for example `Temperature` or `Control`. |
+| `IsControl` | True for a control channel, false for a sensor. |
+
+The add list text is `HardwareName / Name (SensorType)`. An adapter with nothing to offer returns an empty list.
 
 ### Writing a plugin
 
-Reference `CoolingControl.dll` from your class library project and implement the interface:
+Reference `CoolingControl.dll` from a class library and implement the interface:
 
 ```csharp
 using CoolingControl.Platform;
@@ -411,18 +464,25 @@ using CoolingControl.Platform;
 [PlatformAdapter("MyAdapter")]
 public sealed class MyAdapter : IPlatformAdapter
 {
+    public MyAdapter(ConfigHelper config) { }
+
     public Dictionary<string, float?> GetSensorValues(HashSet<string> sensorIdentifiers) { ... }
     public Dictionary<string, float?> GetControlValues(HashSet<string> controlIdentifiers) { ... }
     public Dictionary<string, bool> SetControls(Dictionary<string, float> controlValues) { ... }
     public Dictionary<string, bool> ReleaseControls(HashSet<string> controlIdentifiers) { ... }
-    public void ListAllSensors() { ... }
-    public void Suspend() { ... }
-    public void Resume() { ... }
-    public void Dispose() { ... }
+
+    public IReadOnlyList<HardwareChannel> GetHardwareCatalog() =>
+    [
+        new("MyAdapter", "myadapter/temp1", "Temp 1", "My Device", "Temperature", false)
+    ];
+
+    public void Suspend() { }
+    public void Resume() { }
+    public void Dispose() { }
 }
 ```
 
-Build to a DLL and copy your plugin's own output (the DLL plus any of its private dependency DLLs) into its own subdirectory named to match the DLL, e.g. `plugins/MyAdapter/MyAdapter.dll`. Then reference its sensors and controls in `config.json` using `"Platform": "MyAdapter"`.
+Copy the plugin DLL and its private dependencies to `plugins/MyAdapter/`. The in-tree plugin projects do that on build, into `plugins/<ProjectName>/` under the host output directory.
 
 ### Using a plugin sensor in config.json
 
@@ -434,20 +494,26 @@ Build to a DLL and copy your plugin's own output (the DLL plus any of its privat
 }
 ```
 
-### Example: DummyPlugin
+### Libre Hardware Monitor
 
-`CoolingControl.DummyPlugin` is an in-tree reference implementation. It registers as `"Dummy"` and returns a static `50.0` for all sensor reads. Build the `CoolingControl.DummyPlugin` project to compile and automatically copy it to the host's `plugins/CoolingControl.DummyPlugin/` directory.
+`CoolingControl.LHMPlugin` is included with the application and registers as `"LHM"`. It opens Libre Hardware Monitor for the groups enabled in `LHMConfig`. Its catalog is the cached Power, Temperature, Fan, Load, Control, Level, Frequency, Flow, Noise, and Humidity sensors from that session. A Libre Hardware Monitor control is a channel with `IsControl` true. `CpuEnabled` and `GpuEnabled` default to true. `MotherboardEnabled` and the other groups default to false, so motherboard fan headers stay hidden until `MotherboardEnabled` is true.
 
-### Example: DS18B20Plugin
+On suspend the plugin closes Libre Hardware Monitor and drops its sensor cache, then opens it again on resume. `DisableLHMReleaseOnSuspend` skips that close and reopen.
 
-`CoolingControl.DS18B20Plugin` reads DS18B20 temperature sensors connected through a USB-to-serial adapter that continuously streams ASCII readings at 9600 baud, 8 data bits, no parity, 1 stop bit (8N1), one reading per line, e.g.:
+### DummyPlugin
+
+`CoolingControl.DummyPlugin` is an in-tree sample. It registers as `"Dummy"`, returns `50.0` for every sensor, and remembers control values that were set (an unset control also reads as `50.0`). `GetHardwareCatalog` returns an empty list, so Dummy channels do not appear in the add list or in `list-sensors`. The project targets .NET 8. Building it copies the DLL to `plugins/CoolingControl.DummyPlugin/`.
+
+### DS18B20Plugin
+
+`CoolingControl.DS18B20Plugin` reads DS18B20 temperature sensors through a USB-to-serial adapter that streams ASCII readings at 9600 baud, 8 data bits, no parity, 1 stop bit (8N1), one reading per line, for example:
 
 ```
 t1=+28.70
 t2=+29.20
 ```
 
-It registers as `"DS18B20"` and is sensor-only (no controls). Sensor identifiers must use the form `<COMPORT>/<tag>`, where `<tag>` is the sensor label reported by the adapter (`t1`, `t2`, …):
+It registers as `"DS18B20"` and is sensor-only. `GetControlValues` and `SetControls` fail for any identifier passed as a control. Sensor identifiers use `<COMPORT>/<tag>`, where `<tag>` is the label the adapter sends (`t1`, `t2`, …):
 
 ```json
 {
@@ -458,16 +524,16 @@ It registers as `"DS18B20"` and is sensor-only (no controls). Sensor identifiers
 }
 ```
 
-The plugin opens one serial port per distinct COM port referenced in `config.json`, and automatically reconnects if the adapter is unplugged or the port fails to open. A reading is considered stale (returned as `null`) if none has been received for more than 5 seconds. Notes:
+The constructor opens one serial port for each distinct COM port named by a `DS18B20` sensor in `config.json`. The reader reconnects if the adapter is unplugged or the port fails to open. A reading older than 5 seconds is returned as `null`. The catalog lists tags that have been received: the hardware name is the COM port, the channel name is the tag, the type is `Temperature`, and `IsControl` is false. A port that has not sent a tag yet is not in the add list.
 
-- Windows can occasionally reassign the COM port number (e.g. if the adapter is moved to a different USB port). If `config.json` stops matching, check Device Manager → Ports (COM & LPT) for the adapter's current port, and optionally pin it via Properties → Port Settings → Advanced → COM Port Number.
-- Which physical DS18B20 sensor maps to `t1` vs `t2` is decided by the adapter firmware's 1-Wire discovery order, not by this plugin.
+- Windows can reassign the COM port number, for example after the adapter moves to another USB port. If `config.json` stops matching, check Device Manager → Ports (COM & LPT), and pin the number under Properties → Port Settings → Advanced → COM Port Number.
+- Which physical DS18B20 is `t1` or `t2` is decided by the adapter firmware's 1-Wire discovery order.
 
 ## Configuration
 
 ### config.json
 
-Located in the application directory (e.g., `C:\Program Files\CoolingControl\config`), `config.json` defines aliases, hardware IDs, calibration data, log level, and update intervals. User modifications to `config.json` are preserved during installation or reinstallation.
+`config.json` is in the application config directory, for example `C:\Program Files\CoolingControl\config`. It defines aliases, hardware identifiers, calibration data, log level, and update intervals. The installer keeps an existing `config.json` and `cooling_control.lua`. Sample scripts and `config_sample.json` are replaced on upgrade.
 
 ## License
 
