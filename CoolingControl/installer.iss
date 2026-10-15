@@ -50,7 +50,7 @@ Filename: "{sys}\sc.exe"; Parameters: "description CoolingControl ""Service that
 Filename: "{sys}\sc.exe"; Parameters: "failure CoolingControl reset= 86400 actions= restart/5000/restart/5000/restart/30000"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "failureflag CoolingControl 1"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start CoolingControl"; Description: "Start Windows Service"; Flags: runhidden waituntilterminated;
-Filename: "{app}\CoolingControlTray.exe"; Description: "Start the CoolingControl tray"; Flags: nowait postinstall runasoriginaluser; Tasks: startuptray
+Filename: "{app}\CoolingControlTray.exe"; Description: "Start the CoolingControl tray"; Flags: nowait postinstall runasoriginaluser; Check: ShouldStartTray
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM CoolingControlTray.exe"; Flags: runhidden waituntilterminated
@@ -61,6 +61,12 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#MyAppExeName} /F"; Flags: run
 Filename: "{sys}\sc.exe"; Parameters: "delete CoolingControl"; Flags: runhidden waituntilterminated
 
 [Code]
+function ShouldStartTray: Boolean;
+begin
+  Result := WizardIsTaskSelected('startuptray')
+    or (CompareText(ExpandConstant('{param:restartray|0}'), '1') = 0);
+end;
+
 procedure InitializeWizard;
 begin
   WizardForm.Show;

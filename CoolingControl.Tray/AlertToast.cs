@@ -8,6 +8,7 @@ internal static class AlertToast
 {
     public const string AppUserModelId = "CoolingControl.Tray";
     public const string Tag = "cc-alert";
+    public const string UpdateTag = "cc-update";
     public const string Group = "CoolingControl";
 
     public static void Show(string message)
@@ -15,7 +16,16 @@ internal static class AlertToast
         ToastNotificationManager.CreateToastNotifier(AppUserModelId).Show(Create(message));
     }
 
-    internal static ToastNotification Create(string message)
+    public static void ShowUpdate(string message)
+    {
+        ToastNotificationManager.CreateToastNotifier(AppUserModelId).Show(CreateUpdate(message));
+    }
+
+    internal static ToastNotification Create(string message) => Create(message, Tag);
+
+    internal static ToastNotification CreateUpdate(string message) => Create(message, UpdateTag);
+
+    private static ToastNotification Create(string message, string tag)
     {
         var xml = new XmlDocument();
         xml.LoadXml(
@@ -24,7 +34,7 @@ internal static class AlertToast
             "</binding></visual></toast>");
         return new ToastNotification(xml)
         {
-            Tag = Tag,
+            Tag = tag,
             Group = Group
         };
     }
