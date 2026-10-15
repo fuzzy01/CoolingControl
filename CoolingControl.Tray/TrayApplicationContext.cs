@@ -22,6 +22,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private int _downloadInFlight;
     private int _exiting;
     private bool _downloading;
+    private bool _restarting;
+    private int _restartGeneration;
     private bool _updateMenuPending;
     private UpdateOffer? _updateOffer;
     private string? _notifiedVersion;
@@ -70,6 +72,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var json = await _http.GetStringAsync(_endpoint.BaseUrl + "api/status");
+            ClearRestarting();
             Apply(TrayMenuBuilder.FromJson(json));
         }
         catch (Exception)
@@ -214,9 +217,96 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (menu.Items.Count > 0)
             menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Open dashboard", null, (_, _) => OpenDashboard()));
+        AppendRestartItem(menu);
         AppendUpdateItem(menu);
         menu.Items.Add(new ToolStripMenuItem("Exit", null, (_, _) => ExitTray()));
         return menu;
+    }
+
+    private void AppendRestartItem(ContextMenuStrip menu)
+    {
+        var text = _restarting ? ServiceRestart.RestartingText : ServiceRestart.MenuText;
+        var item = new ToolStripMenuItem(EscapeAmpersand(text)) { Enabled = !_restarting };
+        if (!_restarting)
+            item.Click += (_, _) => RestartService();
+        menu.Items.Add(item);
+    }
+
+    private void RestartService()
+    {
+        if (_restarting || _exiting != 0)
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(ServiceRestart.FileName)
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                Arguments = ServiceRestart.Arguments,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("Service restart failed: {0}", ex);
+            ShowRestartToast(ServiceRestart.FailureMessage);
+            return;
+        }
+
+        _restarting = true;
+        var generation = ++_restartGeneration;
+        if (_exiting == 0)
+            _shutdownWindow.BeginInvoke(new Action(RefreshUpdateMenu));
+        _ = ExpireRestartAsync(generation);
+    }
+
+    private async Task ExpireRestartAsync(int generation)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(60));
+        if (_exiting != 0)
+            return;
+
+        try
+        {
+            _shutdownWindow.BeginInvoke(new Action(() =>
+            {
+                if (_exiting != 0 || generation != _restartGeneration || !_restarting)
+                    return;
+                _restarting = false;
+                RefreshUpdateMenu();
+            }));
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("Service restart timer failed: {0}", ex);
+        }
+    }
+
+    private void ClearRestarting()
+    {
+        if (!_restarting)
+            return;
+        _restarting = false;
+        _restartGeneration++;
+        if (_icon.ContextMenuStrip is { Visible: true })
+            _updateMenuPending = true;
+    }
+
+    private static void ShowRestartToast(string message)
+    {
+        try
+        {
+            AlertToast.ShowRestart(message);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("Restart toast failed: {0}", ex);
+        }
     }
 
     private void AppendUpdateItem(ContextMenuStrip menu)

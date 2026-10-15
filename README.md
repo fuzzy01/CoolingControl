@@ -95,7 +95,7 @@ The installer creates a bare-bones `config.json` and `cooling_control.lua` in th
 - **Hardware config page.** The CoolingControl service must be running.
 - **Command line.** Stop the service first.
 
-Both write the same `config.json`. Restart the service before a newly saved sensor or control is read or driven.
+Both write the same `config.json`. Choose **Restart service** on the tray menu before a newly saved sensor or control is read or driven.
 
 ### Hardware config page
 
@@ -383,7 +383,7 @@ end
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
 - JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
-- The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. Restart the service before a saved entry is read or driven. `list-sensors` still prints the discovery log when the service is stopped.
+- The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. Choose **Restart service** on the tray menu before a saved entry is read or driven. `list-sensors` still prints the discovery log when the service is stopped.
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`
@@ -391,7 +391,7 @@ end
 
 ### Tray
 
-`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists active alerts, the configured sensor values, the control outputs, and the active profile when `Profiles` is set. A new alert is also shown as a Windows toast titled CoolingControl. The menu also shows uptime and how long ago the service last updated. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Exit** closes the tray and leaves the service running.
+`CoolingControlTray.exe` runs in the logged-on user's notification area. It is a separate program from the Windows service. The menu lists active alerts, the configured sensor values, the control outputs, and the active profile when `Profiles` is set. A new alert is also shown as a Windows toast titled CoolingControl. The menu also shows uptime and how long ago the service last updated. Choosing a profile calls `POST /api/profile`. **Open dashboard** and a double-click open `http://localhost:19999/` when the port is the default. **Restart service** stops the Windows service and starts it again, which rereads the config and the control script. It asks for administrator approval. **Exit** closes the tray and leaves the service running.
 
 The tray checks GitHub for a newer release and shows a toast when one is available. **Update to …** downloads and installs that release, keeps the existing config and script, asks for administrator approval, and restarts the service and the tray.
 

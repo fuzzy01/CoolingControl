@@ -379,7 +379,7 @@ public partial class StatusServer
             <div class="container">
                 <p><a href="/">Status</a></p>
                 <h1>Hardware config</h1>
-                <p class="note">Changes are saved immediately. Restart the service before a new entry is read or driven.</p>
+                <p class="note">Changes are saved immediately. Choose Restart service on the tray menu before a new entry is read or driven.</p>
                 <div id="message" class="message"></div>
                 <div class="card">
                     <h2>Sensors</h2>
@@ -592,7 +592,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Restart the service before this entry is read or driven.'
+                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -628,7 +628,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Restart the service before this entry is read or driven.'
+                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -676,7 +676,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Restart the service before this entry is read or driven.'
+                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -709,7 +709,7 @@ public partial class StatusServer
                         body: JSON.stringify({ aliases: aliases })
                     });
                     document.getElementById('message').textContent = response.ok
-                        ? 'Saved. Restart the service before this order is used.'
+                        ? 'Saved. Choose Restart service on the tray menu before this order is used.'
                         : 'Reorder failed.';
                     if (response.ok) await loadConfig();
                 }
@@ -717,7 +717,7 @@ public partial class StatusServer
                 async function removeEntry(kind, alias) {
                     const response = await fetch('/api/' + kind + '/' + encodeURIComponent(alias), { method: 'DELETE' });
                     document.getElementById('message').textContent = response.ok
-                        ? 'Deleted. Restart the service before this change takes effect.'
+                        ? 'Deleted. Choose Restart service on the tray menu before this change takes effect.'
                         : 'Delete failed.';
                     if (response.ok) await loadConfig();
                 }
