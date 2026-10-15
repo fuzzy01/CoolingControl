@@ -8,6 +8,9 @@
   - [Using the Pre-Built Installer](#using-the-pre-built-installer)
   - [Building the Application](#building-the-application)
 - [First setup after installation](#first-setup-after-installation)
+  - [Hardware config page](#hardware-config-page)
+  - [Command line](#command-line)
+  - [Calibrate and edit the script](#calibrate-and-edit-the-script)
 - [Usage](#usage)
   - [Running in Console Mode](#running-in-console-mode)
   - [Running as a Service](#running-as-a-service)
@@ -87,11 +90,27 @@ If you have an AIO cooler, it is preferred using the coolant temperature sensor 
 
 ## First setup after installation
 
-The installer creates a bare-bones `config.json` and `cooling_control.lua` in the config directory. Follow the steps below to configure the application. See the details in the usage section.
+The installer creates a bare-bones `config.json` and `cooling_control.lua` in the config directory. Choose the sensors and controls in one of two ways, then calibrate the fans and edit the Lua script.
 
-1. **Stop the service** before `list-sensors`, `calibrate`, or editing `config.json` by hand: `sc.exe stop CoolingControl`. The hardware config page can be used while the service is running.
-2. **List available sensors**: Run `CoolingControl.exe list-sensors` to identify available sensors (e.g., CPU, GPU temperatures and power) and controls (e.g., fans and pumps). Each line includes the platform, hardware name, channel name, sensor type, identifier, and whether the channel is a control.
-3. **Edit config.json**: Modify `config.json` to set up sensors and controls. Define sensors and controls using aliases and hardware IDs from the list-sensors output. The hardware config page at `http://localhost:19999/config` can add, edit, delete, and reorder the same entries while the service is running. Restart the service before a saved entry is read or driven. Calibration points and `ThermalMinControl` are not edited on that page.
+- **Hardware config page.** The CoolingControl service must be running.
+- **Command line.** Stop the service first.
+
+Both write the same `config.json`. Restart the service before a newly saved sensor or control is read or driven.
+
+### Hardware config page
+
+1. Start the service if it is stopped: `sc.exe start CoolingControl`. The installer starts it.
+2. Open `http://localhost:19999/config`. The status page at `http://localhost:19999` links here as **Hardware config**.
+3. Add a sensor or control by picking a channel. Edit, delete, or reorder the rows already saved in `config.json`.
+
+The page leaves calibration points and `ThermalMinControl` unchanged. What the columns show is described in [Monitoring Status (HTTP Dashboard)](#monitoring-status-http-dashboard). Continue with [Calibrate and edit the script](#calibrate-and-edit-the-script). Starting the service at the end of that section loads the saved entries.
+
+### Command line
+
+Stop the service first: `sc.exe stop CoolingControl`.
+
+1. **List available sensors.** From `C:\Program Files\CoolingControl`, run `CoolingControl.exe list-sensors`. Each line includes the platform, hardware name, channel name, sensor type, identifier, and whether the channel is a control.
+2. **Edit `config.json`.** Add sensors and controls using the aliases and hardware identifiers from that list. When the file is saved, continue with [Calibrate and edit the script](#calibrate-and-edit-the-script).
 
 - For each control (fan/pump), specify the following:
   - `Alias`: A user-friendly name for the fan/pump (e.g., "AIO Fan").
@@ -197,8 +216,13 @@ The installer creates a bare-bones `config.json` and `cooling_control.lua` in th
   - `BeatDetuneMaxNudgeRpm`: Largest RPM increase beat detune may apply to one fan on a tick (default: 200).
   - `BeatDetune`: When true, this fan takes part in beat detune (default: false). Leave it false on pumps and on matched GPU fans.
 
-4. **Calibrate fans and pumps**: Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This will update `config.json` with the calibration data.
-5. **Edit cooling_control.lua**: Customize the Lua script for specific control logic. You can use the provided examples (`cooling_control_aio_sample.lua`, `cooling_control_aio_with_sensor_sample.lua`, `cooling_control_aircooling_sample.lua`, `cooling_control_gpu_sample.lua`, `cooling_control_profiles_sample.lua`, `cooling_control_cfg_access_sample.lua`) or create your own. The script is executed every UpdateIntervalMs, and the `calculate_controls` function is called to determine the fan/pump speeds based on the sensor data. The script can use any sensor data available in the system that is define in `config.json`. You can specify the control value (fan/pump speed) in RPM or percentage. The script can also use the provided Lua library for common algorithms (e.g., exponential moving average, hysteresis, linear curve). Ramp up/down and min start/min stop logic is applied by the app framework, no need to handle it the control script. Controls with `BeatDetune` set are also spread apart in RPM by the framework after the script returns. See [Beat detune](#beat-detune).
+### Calibrate and edit the script
+
+Do this after the sensors and controls are saved, from either the page or the command line. Stop the service before calibration: `sc.exe stop CoolingControl`.
+
+1. **Calibrate fans and pumps.** Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This updates `config.json` with the calibration data. To calibrate one control, pass its alias, as described in [Calibrating Fans and Pumps](#calibrating-fans-and-pumps).
+2. **Edit `cooling_control.lua`.** Customize the Lua script for your control logic. You can use the provided examples (`cooling_control_aio_sample.lua`, `cooling_control_aio_with_sensor_sample.lua`, `cooling_control_aircooling_sample.lua`, `cooling_control_gpu_sample.lua`, `cooling_control_profiles_sample.lua`, `cooling_control_cfg_access_sample.lua`) or create your own. The script runs every `UpdateIntervalMs`, and `calculate_controls` sets the fan and pump speeds from the sensors defined in `config.json`. A control value can be an RPM or a percentage. The included Lua library supplies common algorithms such as exponential moving average, hysteresis, and a linear curve. Ramp up, ramp down, min start, and min stop are applied by the application, so the script does not handle them. Controls with `BeatDetune` set are also spread apart in RPM by the application after the script returns. See [Beat detune](#beat-detune).
+3. **Start the service:** `sc.exe start CoolingControl`.
 
 **Example for AIO without coolant temperature sensor**:
 
