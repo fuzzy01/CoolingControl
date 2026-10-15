@@ -6,7 +6,7 @@
     "CpuEnabled": true,
     "GpuEnabled": true,
     "MotherboardEnabled": true,
-    "MemoryEnabled": false,
+    "MemoryEnabled": true,
     "StorageEnabled": false,
     "NetworkEnabled": false,
     "ControllerEnabled": false,

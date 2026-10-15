@@ -132,7 +132,7 @@ Stop the service first: `sc.exe stop CoolingControl`.
     "CpuEnabled": true,
     "GpuEnabled": true,
     "MotherboardEnabled": true,
-    "MemoryEnabled": false,
+    "MemoryEnabled": true,
     "StorageEnabled": false,
     "NetworkEnabled": false,
     "ControllerEnabled": false,
@@ -201,7 +201,7 @@ Stop the service first: `sc.exe stop CoolingControl`.
   - `StatusServerBindAddress`: Address the HTTP status server binds to (default: `"localhost"`). Set to `"+"` to allow access from other devices on the network (`"0.0.0.0"` is not a valid HTTP.sys prefix).
   - `Profiles`: Optional list of profile names, for example `["silent", "balanced", "performance"]`. An empty list leaves the script on one curve and the dashboard shows no profile buttons.
   - `ActiveProfile`: Profile name the script starts with. It must be one of `Profiles`, or `""`. The status page can change it, and the new name is written back to `config.json`.
-  - `LHMConfig`: Configuration for Libre Hardware Monitor (LHM) sensor type groups.
+  - `LHMConfig`: Which Libre Hardware Monitor groups are opened. The default `config.json` and `config_sample.json` set `CpuEnabled`, `GpuEnabled`, `MotherboardEnabled`, and `MemoryEnabled` to true. `StorageEnabled`, `NetworkEnabled`, `ControllerEnabled`, `BatteryEnabled`, and `PsuEnabled` are false.
   - `Controls`: List of fan/pump controls with their aliases, identifiers, and RPM sensors.
   - `Sensors`: List of sensors with their aliases and identifiers.
   - `Alias`: A user-friendly name for the sensor (e.g., "CPU Package").
@@ -520,7 +520,7 @@ Copy the plugin DLL and its private dependencies to `plugins/MyAdapter/`. The in
 
 ### Libre Hardware Monitor
 
-`CoolingControl.LHMPlugin` is included with the application and registers as `"LHM"`. It opens Libre Hardware Monitor for the groups enabled in `LHMConfig`. Its catalog is the cached Power, Temperature, Fan, Load, Control, Level, Frequency, Flow, Noise, and Humidity sensors from that session. A Libre Hardware Monitor control is a channel with `IsControl` true. `CpuEnabled` and `GpuEnabled` default to true. `MotherboardEnabled` and the other groups default to false, so motherboard fan headers stay hidden until `MotherboardEnabled` is true.
+`CoolingControl.LHMPlugin` is included with the application and registers as `"LHM"`. It opens Libre Hardware Monitor for the groups enabled in `LHMConfig`. Its catalog is the cached Power, Temperature, Fan, Load, Control, Level, Frequency, Flow, Noise, and Humidity sensors from that session. A Libre Hardware Monitor control is a channel with `IsControl` true. The default `config.json` and `config_sample.json` set `CpuEnabled`, `GpuEnabled`, `MotherboardEnabled`, and `MemoryEnabled` to true. `StorageEnabled`, `NetworkEnabled`, `ControllerEnabled`, `BatteryEnabled`, and `PsuEnabled` are false.
 
 On suspend the plugin closes Libre Hardware Monitor and drops its sensor cache, then opens it again on resume. `DisableLHMReleaseOnSuspend` skips that close and reopen.
 
