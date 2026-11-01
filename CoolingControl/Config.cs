@@ -18,7 +18,8 @@ public class Config
     public List<string> Profiles { get; set; } = [];
     public string ActiveProfile { get; set; } = "";
     public float BeatDetuneMinSeparationRpm { get; set; } = 150f;
-    public float BeatDetuneMaxNudgeRpm { get; set; } = 200f;
+    public float BeatDetuneMaxNudgeRpm { get; set; } = 300f;
+    public float BeatDetuneMatchWindowRpm { get; set; } = 50f;
     public List<ControlConfig> Controls { get; set; } = [];
     public List<SensorConfig> Sensors { get; set; } = [];
 }

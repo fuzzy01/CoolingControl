@@ -213,7 +213,8 @@ Stop the service first: `sc.exe stop CoolingControl`.
   - `ZeroRPM`: If true, when the control is set to 0 RPM the control is handed back to the hardware, it is needed to support GPU fans (default: false).
   - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
   - `BeatDetuneMinSeparationRpm`: Minimum RPM gap between fans that opt in to beat detune (default: 150). A smaller positive gap is opened by raising the faster fan.
-  - `BeatDetuneMaxNudgeRpm`: Largest RPM increase beat detune may apply to one fan on a tick (default: 200).
+  - `BeatDetuneMaxNudgeRpm`: Largest RPM increase beat detune may apply to one fan on a tick (default: 300).
+  - `BeatDetuneMatchWindowRpm`: Fans whose requested speeds are within this many RPM use the previous fan's placed RPM (default: 50). The faster fan may be lowered by up to this amount. Zero matches only equal speeds.
   - `BeatDetune`: When true, this fan takes part in beat detune (default: false). Leave it false on pumps and on matched GPU fans.
 
 ### Calibrate and edit the script
@@ -221,7 +222,7 @@ Stop the service first: `sc.exe stop CoolingControl`.
 Do this after the sensors and controls are saved, from either the page or the command line. Stop the service before calibration: `sc.exe stop CoolingControl`.
 
 1. **Calibrate fans and pumps.** Run `CoolingControl.exe calibrate all` to generate calibration data for all fans and pumps. This updates `config.json` with the calibration data. To calibrate one control, pass its alias, as described in [Calibrating Fans and Pumps](#calibrating-fans-and-pumps).
-2. **Edit `cooling_control.lua`.** Customize the Lua script for your control logic. You can use the provided examples (`cooling_control_aio_sample.lua`, `cooling_control_aio_with_sensor_sample.lua`, `cooling_control_aircooling_sample.lua`, `cooling_control_gpu_sample.lua`, `cooling_control_profiles_sample.lua`, `cooling_control_cfg_access_sample.lua`) or create your own. The script runs every `UpdateIntervalMs`, and `calculate_controls` sets the fan and pump speeds from the sensors defined in `config.json`. A control value can be an RPM or a percentage. The included Lua library supplies common algorithms such as exponential moving average, hysteresis, and a linear curve. Ramp up, ramp down, min start, and min stop are applied by the application, so the script does not handle them. Controls with `BeatDetune` set are also spread apart in RPM by the application after the script returns. See [Beat detune](#beat-detune).
+2. **Edit `cooling_control.lua`.** Customize the Lua script for your control logic. You can use the provided examples (`cooling_control_aio_sample.lua`, `cooling_control_aio_with_sensor_sample.lua`, `cooling_control_aircooling_sample.lua`, `cooling_control_gpu_sample.lua`, `cooling_control_profiles_sample.lua`, `cooling_control_cfg_access_sample.lua`) or create your own. The script runs every `UpdateIntervalMs`, and `calculate_controls` sets the fan and pump speeds from the sensors defined in `config.json`. A control value can be an RPM or a percentage. The included Lua library supplies common algorithms such as exponential moving average, hysteresis, and a linear curve. Ramp up, ramp down, min start, and min stop are applied by the application, so the script does not handle them. Controls with `BeatDetune` set are locked to one RPM when they are already within `BeatDetuneMatchWindowRpm`, and spread apart when the gap is wider, after the script returns. See [Beat detune](#beat-detune).
 3. **Start the service:** `sc.exe start CoolingControl`.
 
 **Example for AIO without coolant temperature sensor**:
@@ -445,9 +446,11 @@ The target is parsed with a dot as the decimal separator. When the run finishes,
 
 ### Beat detune
 
-Fans whose speeds sit a few tens of RPM apart produce a slow beat. Set `BeatDetune` to true on each fan that should take part. After the script returns, CoolingControl sorts those fans by requested RPM and raises one when it is closer than `BeatDetuneMinSeparationRpm` (default 150) to the fan just below it. It never lowers a fan. A raise stops at `BeatDetuneMaxNudgeRpm` (default 200) and at the top of that fan's RPM calibration.
+Fans whose speeds sit a few tens of RPM apart produce a slow beat. Set `BeatDetune` to true on each fan that should take part. After the script returns, CoolingControl sorts those fans by requested RPM.
 
-Fans already at least that far apart are left alone. Two fans whose requested speeds are within 1 RPM stay matched, including when that pair is raised together to clear a slower fan. A request at or below 0 stays out of the pass, so a stopped fan is not spun up to open a gap. Pumps and matched GPU fans stay out by leaving `BeatDetune` false.
+Fans within `BeatDetuneMatchWindowRpm` (default 50) use the previous fan's placed RPM, so Front Fan follows Rear Fan when one shared command maps through two calibrations a few RPM apart. That can lower the faster fan by up to the match window. A larger gap that is still under `BeatDetuneMinSeparationRpm` (default 150) is opened by raising the faster fan. A pair already at one speed rises together when it has to clear a slower fan. An upward change stops at `BeatDetuneMaxNudgeRpm` (default 300) and at the top of that fan's RPM calibration.
+
+Fans already at least `BeatDetuneMinSeparationRpm` apart are left alone. A request at or below 0 stays out of the pass, so a stopped fan is not spun up. Pumps and matched GPU fans stay out by leaving `BeatDetune` false.
 
 150 RPM is about a 2.5 Hz rotational beat (`gap / 60`). Step ramp can still carry a measured speed through that window while the duty catches up. The status page and CSV log show the detuned request, before ramp and zero-RPM handback.
 

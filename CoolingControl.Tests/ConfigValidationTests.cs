@@ -277,4 +277,14 @@ public class ConfigValidationTests : IDisposable
         var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
         Assert.Contains("BeatDetuneMaxNudgeRpm must be zero or positive", ex.Message);
     }
+
+    [Fact]
+    public void Validate_BeatDetuneMatchWindowRpm_Negative_Throws()
+    {
+        var config = ValidConfig();
+        config.BeatDetuneMatchWindowRpm = -1;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigHelper.Validate(config));
+        Assert.Contains("BeatDetuneMatchWindowRpm must be zero or positive", ex.Message);
+    }
 }

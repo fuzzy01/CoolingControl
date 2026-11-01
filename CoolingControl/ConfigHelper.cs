@@ -256,6 +256,9 @@ public class ConfigHelper
         if (config.BeatDetuneMaxNudgeRpm < 0)
             errors.Add($"BeatDetuneMaxNudgeRpm must be zero or positive (got {config.BeatDetuneMaxNudgeRpm}).");
 
+        if (config.BeatDetuneMatchWindowRpm < 0)
+            errors.Add($"BeatDetuneMatchWindowRpm must be zero or positive (got {config.BeatDetuneMatchWindowRpm}).");
+
         string[] validLogLevels = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         if (!validLogLevels.Contains(config.LogLevel))
             errors.Add($"LogLevel '{config.LogLevel}' is not valid. Must be one of: {string.Join(", ", validLogLevels)}.");

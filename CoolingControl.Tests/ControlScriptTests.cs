@@ -137,6 +137,50 @@ public class ControlScriptTests : IDisposable
     }
 
     [Fact]
+    public void CalculateControls_BeatDetune_SamePercent_LocksDifferentCurves()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "Rear Fan", value = 50 },
+                    { alias = "Front Fan", value = 50 }
+                }
+            end
+            """,
+            [
+                CurveFan("Rear Fan", "/fan/rear", 1000f, 2600f),
+                CurveFan("Front Fan", "/fan/front", 1010f, 2610f)
+            ]);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(1600f, RpmOnCurve(result["Rear Fan"], 1000f, 2600f), 2);
+        Assert.Equal(1600f, RpmOnCurve(result["Front Fan"], 1010f, 2610f), 2);
+    }
+
+    [Fact]
+    public void CalculateControls_BeatDetune_UsesConfiguredMatchWindow()
+    {
+        using var script = CreateScript(
+            """
+            function calculate_controls(sensors)
+                return {
+                    { alias = "Rear Fan", rpm = 1504 },
+                    { alias = "Front Fan", rpm = 1517 }
+                }
+            end
+            """,
+            [CalibratedFan("Rear Fan", "/fan/rear", beatDetune: true), CalibratedFan("Front Fan", "/fan/front", beatDetune: true)],
+            matchWindowRpm: 0f);
+
+        var result = script.CalculateControls([]);
+
+        Assert.Equal(PercentForRpm(1504f), result["Rear Fan"]);
+        Assert.Equal(PercentForRpm(1654f), result["Front Fan"]);
+    }
+
+    [Fact]
     public void CalculateControls_BeatDetune_SpreadsPercentTargets()
     {
         float lowPercent = PercentForRpm(1000f);
@@ -373,19 +417,20 @@ public class ControlScriptTests : IDisposable
         Assert.Contains("did not return a valid table", exception.Message);
     }
 
-    private ControlScript CreateScript(string source, List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null)
+    private ControlScript CreateScript(string source, List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null, float matchWindowRpm = 50f)
     {
         File.WriteAllText(_scriptPath, source);
-        return new ControlScript(CreateConfig(controls, activeProfile, profiles));
+        return new ControlScript(CreateConfig(controls, activeProfile, profiles, matchWindowRpm));
     }
 
-    private ConfigHelper CreateConfig(List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null)
+    private ConfigHelper CreateConfig(List<ControlConfig>? controls = null, string activeProfile = "", List<string>? profiles = null, float matchWindowRpm = 50f)
     {
         var config = new Config
         {
             ScriptPath = _scriptPath,
             ActiveProfile = activeProfile,
             Profiles = profiles ?? (string.IsNullOrEmpty(activeProfile) ? [] : [activeProfile]),
+            BeatDetuneMatchWindowRpm = matchWindowRpm,
             Controls = controls ??
             [
                 new()
@@ -409,6 +454,21 @@ public class ControlScriptTests : IDisposable
         File.WriteAllText(_configPath, JsonSerializer.Serialize(config));
         return new ConfigHelper(_configPath);
     }
+
+    private static ControlConfig CurveFan(string alias, string identifier, float lowRpm, float highRpm) => new()
+    {
+        Alias = alias,
+        Identifier = identifier,
+        BeatDetune = true,
+        RPMCalibration =
+        [
+            new() { Control = 20f, Rpm = lowRpm },
+            new() { Control = 100f, Rpm = highRpm }
+        ]
+    };
+
+    private static float RpmOnCurve(float percent, float lowRpm, float highRpm) =>
+        lowRpm + (highRpm - lowRpm) * ((percent - 20f) / (100f - 20f));
 
     private static ControlConfig CalibratedFan(string alias, string identifier, bool beatDetune) => new()
     {

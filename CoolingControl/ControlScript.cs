@@ -295,7 +295,8 @@ public class ControlScript : IDisposable
         foreach (var placement in BeatDetuner.Adjust(
             spreadFans,
             _config.Config.BeatDetuneMinSeparationRpm,
-            _config.Config.BeatDetuneMaxNudgeRpm))
+            _config.Config.BeatDetuneMaxNudgeRpm,
+            _config.Config.BeatDetuneMatchWindowRpm))
         {
             LogBeatDetune(placement);
             var percent = _config.ConvertRPMToPercent(placement.Alias, placement.ToRpm);
