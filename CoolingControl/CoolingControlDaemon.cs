@@ -14,19 +14,26 @@ using CoolingControl.Platform;
 public class CoolingControlDaemon : BackgroundService
 {
     private readonly ConfigHelper _config;
-    private readonly IMonitoringPlatform _monitor;
-    private readonly ControlScript _script;
+    private IMonitoringPlatform _monitor;
+    private ControlScript _script;
     private readonly CSVLogger _CSVLogger;
     private readonly HardwareCatalog _hardwareCatalog;
     private readonly IStatusSnapshot _statusSnapshot;
+    private readonly CalibrationRequest _calibration;
     private readonly int _intervalMs;
     private readonly BlockingCollection<PowerEvent> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
-    public CoolingControlDaemon(ConfigHelper config, HardwareCatalog hardwareCatalog, IStatusSnapshot statusSnapshot, IHostApplicationLifetime hostApplicationLifetime)
+    public CoolingControlDaemon(
+        ConfigHelper config,
+        HardwareCatalog hardwareCatalog,
+        IStatusSnapshot statusSnapshot,
+        CalibrationRequest calibration,
+        IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
         _hardwareCatalog = hardwareCatalog;
+        _calibration = calibration;
         _monitor = new DefaultMonitorPlatform(_config, PlatformAdapterFactory.Create(_config));
         _script = new ControlScript(_config);
         _CSVLogger = new CSVLogger(_config);
@@ -145,42 +152,49 @@ public class CoolingControlDaemon : BackgroundService
                 {
                     if (!isSuspended)
                     {
-                        if (_hardwareCatalog.IsRefreshRequested)
+                        if (_calibration.TryTake(out var calibrateAlias))
                         {
-                            try
-                            {
-                                _hardwareCatalog.Publish(_monitor.GetHardwareCatalog());
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error(ex, "Failed to read hardware catalog");
-                                _hardwareCatalog.Publish(_hardwareCatalog.Rows);
-                            }
+                            RunCalibration(calibrateAlias, cancellationToken);
                         }
-
-                        // Get sensor data
-                        var sensorData = _monitor.GetSensorValues();
-                        lastSensors = new Dictionary<string, float?>(sensorData);
-    
-                        // Execute script to get control settings
-                        _script.SetActiveProfile(_config.GetActiveProfile());
-                        var settings = _script.CalculateControls(sensorData);
-
-                        if (_config.Config.EnableCSVLogging)
+                        else
                         {
-                            // Log sensor data to CSV
-                            _CSVLogger.LogData(sensorData, settings);
-                        }
+                            if (_hardwareCatalog.IsRefreshRequested)
+                            {
+                                try
+                                {
+                                    _hardwareCatalog.Publish(_monitor.GetHardwareCatalog());
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.Error(ex, "Failed to read hardware catalog");
+                                    _hardwareCatalog.Publish(_hardwareCatalog.Rows);
+                                }
+                            }
 
-                        // Apply control settings
-                        var res = _monitor.SetControls(settings);
+                            // Get sensor data
+                            var sensorData = _monitor.GetSensorValues();
+                            lastSensors = new Dictionary<string, float?>(sensorData);
 
-                        var alertMessages = PublishAlerts(sensorData, PruneErrors(), activeAlerts);
-                        if (_config.Config.StatusServerEnabled)
-                        {
-                            // Update status snapshot for HTTP server
-                            var controlRpmData = _monitor.GetControlRPMValues();
-                            _statusSnapshot.Update(sensorData, settings, controlRpmData, DateTime.UtcNow, alertMessages);
+                            // Execute script to get control settings
+                            _script.SetActiveProfile(_config.GetActiveProfile());
+                            var settings = _script.CalculateControls(sensorData);
+
+                            if (_config.Config.EnableCSVLogging)
+                            {
+                                // Log sensor data to CSV
+                                _CSVLogger.LogData(sensorData, settings);
+                            }
+
+                            // Apply control settings
+                            var res = _monitor.SetControls(settings);
+
+                            var alertMessages = PublishAlerts(sensorData, PruneErrors(), activeAlerts);
+                            if (_config.Config.StatusServerEnabled)
+                            {
+                                // Update status snapshot for HTTP server
+                                var controlRpmData = _monitor.GetControlRPMValues();
+                                _statusSnapshot.Update(sensorData, settings, controlRpmData, DateTime.UtcNow, alertMessages);
+                            }
                         }
                     }
                 }
@@ -278,6 +292,76 @@ public class CoolingControlDaemon : BackgroundService
         }
 
         Log.Information("CoolingControl service stopped");
+    }
+
+    private void RunCalibration(string alias, CancellationToken cancellationToken)
+    {
+        var saved = false;
+        try
+        {
+            try
+            {
+                _script.OnStop();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error in Lua on_stop");
+            }
+
+            try
+            {
+                _monitor.ReleaseControls();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error releasing controls");
+            }
+
+            try
+            {
+                _monitor.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error disposing monitor");
+            }
+
+            saved = new ControlCalibration(_config, alias, _hostApplicationLifetime).Run(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Calibration failed");
+            saved = false;
+        }
+        finally
+        {
+            Exception? resumeError = null;
+            try
+            {
+                _monitor = new DefaultMonitorPlatform(_config, PlatformAdapterFactory.Create(_config));
+                var script = new ControlScript(_config);
+                try
+                {
+                    _script.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error disposing script");
+                }
+
+                _script = script;
+                _script.OnStart();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to resume control after calibration");
+                resumeError = ex;
+            }
+
+            _calibration.Finish(saved, alias);
+            if (resumeError != null)
+                throw resumeError;
+        }
     }
 
     private readonly record struct PowerEvent(PowerModes Mode, bool? IsAcPowered = null);

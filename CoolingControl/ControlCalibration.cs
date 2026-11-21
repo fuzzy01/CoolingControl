@@ -30,10 +30,22 @@ public class ControlCalibration : BackgroundService
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        return Task.Run(() => Calibrate(cancellationToken), cancellationToken);
+        return Task.Run(() =>
+        {
+            try
+            {
+                Calibrate(cancellationToken);
+            }
+            finally
+            {
+                _hostApplicationLifetime.StopApplication();
+            }
+        }, cancellationToken);
     }
 
-    protected void Calibrate(CancellationToken cancellationToken)
+    internal bool Run(CancellationToken cancellationToken) => Calibrate(cancellationToken);
+
+    protected bool Calibrate(CancellationToken cancellationToken)
     {
         var controls = _control_alias != "all" ? [_control_alias] : _config.Config.Controls.Select(f => f.Alias).ToHashSet();
         
@@ -47,7 +59,7 @@ public class ControlCalibration : BackgroundService
                 if (minStart == null)
                 {
                     Log.Error("Failed to calibrate MinStart for {Alias}. Exiting ...", control_alias);
-                    return;
+                    return false;
                 }
                 _config.ControlConfigsByAlias[control_alias].MinStart = (float)minStart;
 
@@ -55,7 +67,7 @@ public class ControlCalibration : BackgroundService
                 if (minStop == null)
                 {
                     Log.Error("Failed to calibrate MinStop for {Alias}. Exiting ...", control_alias);
-                    return;
+                    return false;
                 }
                 _config.ControlConfigsByAlias[control_alias].MinStop = (float)minStop;
 
@@ -63,7 +75,7 @@ public class ControlCalibration : BackgroundService
                 if (rpmCalibration == null)
                 {
                     Log.Error("Failed to calibrate RPM curve for {Alias}. Exiting ...", control_alias);
-                    return;
+                    return false;
                 }
                 _config.ControlConfigsByAlias[control_alias].RPMCalibration = rpmCalibration;
 
@@ -72,14 +84,17 @@ public class ControlCalibration : BackgroundService
 
             // Save the config
             _config.SaveConfig();
+            return true;
         }
         catch (OperationCanceledException)
         {
             // Expected when cancellation is requested
+            return false;
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Unexpected error in control loop");
+            return false;
         }
         finally
         {
@@ -87,8 +102,6 @@ public class ControlCalibration : BackgroundService
             {
                 _calibrator.ReleaseControl(control_alias);
             }
-
-            _hostApplicationLifetime.StopApplication();
 
             _calibrator.Dispose();
         }

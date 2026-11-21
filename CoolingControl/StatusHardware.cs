@@ -31,7 +31,8 @@ public partial class StatusServer
                 minStop = control.MinStop,
                 zeroRpm = control.ZeroRPM,
                 rpmSensor = control.RPMSensor,
-                beatDetune = control.BeatDetune
+                beatDetune = control.BeatDetune,
+                calibrationPoints = control.RPMCalibration?.Count ?? 0
             })
         });
         WriteJson(response, 200, json);
@@ -53,6 +54,67 @@ public partial class StatusServer
             })
         });
         WriteJson(response, 200, json);
+    }
+
+    private void HandleCalibration(HttpListenerContext context)
+    {
+        var request = context.Request;
+        var response = context.Response;
+        if (!request.IsLocal)
+        {
+            response.StatusCode = 403;
+            response.Close();
+            return;
+        }
+
+        if (string.Equals(request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteCalibration(response, 200, _calibration.Status().Message);
+            return;
+        }
+
+        if (!string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            response.StatusCode = 405;
+            response.Close();
+            return;
+        }
+
+        string? alias;
+        try
+        {
+            alias = ReadCalibrationAlias(request);
+        }
+        catch (JsonException)
+        {
+            response.StatusCode = 400;
+            response.Close();
+            return;
+        }
+
+        var (_, controls) = _config.SnapshotEntries();
+        _calibration.TryBegin(controls, alias, out var statusCode, out var message);
+        WriteCalibration(response, statusCode, message);
+    }
+
+    private void WriteCalibration(HttpListenerResponse response, int statusCode, string message)
+    {
+        var status = _calibration.Status();
+        WriteJson(response, statusCode, JsonSerializer.Serialize(new
+        {
+            running = status.Running,
+            alias = status.Alias,
+            message
+        }));
+    }
+
+    private static string ReadCalibrationAlias(HttpListenerRequest request)
+    {
+        using var doc = ReadJson(request);
+        var alias = OptionalString(doc.RootElement, "alias");
+        if (string.IsNullOrWhiteSpace(alias))
+            throw new JsonException("Missing alias.");
+        return alias;
     }
 
     private void HandleHardwarePage(HttpListenerResponse response)
@@ -391,6 +453,7 @@ public partial class StatusServer
                     <h2>Controls</h2>
                     <div id="controls"></div>
                     <button id="add-control" type="button">Add control</button>
+                    <button id="calibrate-all" type="button">Calibrate all</button>
                 </div>
                 <div id="control-picker"></div>
             </div>
@@ -398,6 +461,8 @@ public partial class StatusServer
                 let config = { sensors: [], controls: [] };
                 let catalog = null;
                 let catalogRequested = false;
+                let calibrating = false;
+                let calibrationTimer = 0;
 
                 function text(value) {
                     return value === null || value === undefined || value === '' ? '' : String(value);
@@ -433,6 +498,9 @@ public partial class StatusServer
                 function render() {
                     document.getElementById('sensors').innerHTML = sensorTable(config.sensors || []);
                     document.getElementById('controls').innerHTML = controlTable(config.controls || []);
+                    const controls = config.controls || [];
+                    document.getElementById('calibrate-all').disabled = calibrating || controls.length === 0 ||
+                        controls.some(function (control) { return !control.rpmSensor; });
                 }
 
                 function moveButtons(kind, alias, index, count) {
@@ -485,12 +553,21 @@ public partial class StatusServer
                             '</td><td>' + escapeHtml(control.stepDown) + '</td><td>' + escapeHtml(control.minStart) +
                             '</td><td>' + escapeHtml(control.minStop) + '</td><td>' + (control.zeroRpm ? 'yes' : 'no') +
                             '</td><td>' + escapeHtml(rpmSensorLabel(control)) + '</td><td>' + (control.beatDetune ? 'yes' : 'no') +
+                            '</td><td>' + calibrationLabel(control) +
                             '</td><td>' + moveButtons('control', control.alias, index, controls.length) +
                             '<button type="button" data-edit-control="' + escapeHtml(control.alias) +
                             '">Edit</button><button type="button" data-delete-control="' + escapeHtml(control.alias) +
-                            '">Delete</button></td></tr>';
+                            '">Delete</button><button type="button" data-calibrate="' + escapeHtml(control.alias) + '"' +
+                            (calibrating || !control.rpmSensor ? ' disabled' : '') +
+                            '>Calibrate</button></td></tr>';
                     }).join('');
-                    return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Step up</th><th>Step down</th><th>Min start</th><th>Min stop</th><th>Zero RPM</th><th>RPM sensor</th><th>Beat detune</th><th></th></tr>' + rows + '</table>';
+                    return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Step up</th><th>Step down</th><th>Min start</th><th>Min stop</th><th>Zero RPM</th><th>RPM sensor</th><th>Beat detune</th><th>Calibration</th><th></th></tr>' + rows + '</table>';
+                }
+
+                function calibrationLabel(control) {
+                    const count = Number(control.calibrationPoints) || 0;
+                    if (count === 1) return '1 point';
+                    return count > 0 ? count + ' points' : 'none';
                 }
 
                 async function ensureCatalog() {
@@ -684,6 +761,7 @@ public partial class StatusServer
 
                 document.getElementById('add-sensor').addEventListener('click', function () { showAdd('sensors'); });
                 document.getElementById('add-control').addEventListener('click', function () { showAdd('controls'); });
+                document.getElementById('calibrate-all').addEventListener('click', function () { startCalibration('all'); });
                 document.body.addEventListener('click', function (event) {
                     const target = event.target;
                     if (target.dataset.moveSensor) moveEntry('sensors', target.dataset.alias, target.dataset.moveSensor);
@@ -692,7 +770,61 @@ public partial class StatusServer
                     if (target.dataset.moveControl) moveEntry('controls', target.dataset.alias, target.dataset.moveControl);
                     if (target.dataset.editControl) editControl(target.dataset.editControl);
                     if (target.dataset.deleteControl) removeEntry('controls', target.dataset.deleteControl);
+                    if (target.dataset.calibrate) startCalibration(target.dataset.calibrate);
                 });
+
+                async function startCalibration(alias) {
+                    if (calibrating) return;
+                    if (!confirm('Fans will run through the sweep. Control pauses until it finishes.'))
+                        return;
+                    calibrating = true;
+                    render();
+                    try {
+                        const response = await fetch('/api/calibrate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ alias: alias })
+                        });
+                        let data = {};
+                        try { data = await response.json(); } catch (error) { data = {}; }
+                        if (data.message)
+                            document.getElementById('message').textContent = data.message;
+                        if (response.status !== 202) {
+                            calibrating = false;
+                            render();
+                            return;
+                        }
+                    } catch (error) {
+                        calibrating = false;
+                        render();
+                        document.getElementById('message').textContent = 'Calibration failed to start.';
+                        return;
+                    }
+                    watchCalibration();
+                }
+
+                async function watchCalibration() {
+                    try {
+                        const response = await fetch('/api/calibrate');
+                        if (!response.ok) throw new Error('status');
+                        const data = await response.json();
+                        const wasRunning = calibrating;
+                        calibrating = !!data.running;
+                        if (data.message)
+                            document.getElementById('message').textContent = data.message;
+                        render();
+                        if (calibrating) {
+                            if (calibrationTimer) clearTimeout(calibrationTimer);
+                            calibrationTimer = setTimeout(watchCalibration, 1000);
+                        } else if (wasRunning) {
+                            await loadConfig();
+                        }
+                    } catch (error) {
+                        if (!calibrating) return;
+                        if (calibrationTimer) clearTimeout(calibrationTimer);
+                        calibrationTimer = setTimeout(watchCalibration, 1000);
+                    }
+                }
 
                 async function moveEntry(kind, alias, direction) {
                     const items = kind === 'sensors' ? config.sensors : config.controls;
@@ -722,7 +854,7 @@ public partial class StatusServer
                     if (response.ok) await loadConfig();
                 }
 
-                loadConfig();
+                loadConfig().then(watchCalibration);
             </script>
         </body>
         </html>
