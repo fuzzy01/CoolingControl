@@ -13,14 +13,21 @@ public sealed class CalibrationRequest
     private string _alias = "";
     private string _message = "";
 
-    public bool TryBegin(IReadOnlyList<ControlConfig> controls, string? alias, out int statusCode, out string message)
+    public bool TryBegin(
+        IReadOnlyList<ControlConfig> controls,
+        string? alias,
+        out int statusCode,
+        out string message,
+        bool reloadBusy = false)
     {
         lock (_gate)
         {
-            if (_pending != null || _running)
+            if (reloadBusy || _pending != null || _running)
             {
                 statusCode = 409;
-                message = "Calibration is already running.";
+                message = reloadBusy && _pending == null && !_running
+                    ? "Config reload is already running."
+                    : "Calibration is already running.";
                 return false;
             }
 

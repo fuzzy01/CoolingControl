@@ -77,6 +77,19 @@ public class CalibrationRequestTests
         Assert.Equal("Calibration saved.", request.Status().Message);
     }
 
+    [Fact]
+    public void TryBegin_WhileReloadBusy_Is409()
+    {
+        var request = new CalibrationRequest();
+
+        var started = request.TryBegin([Fan("Fan", "/rpm/0")], "Fan", out var status, out var message, reloadBusy: true);
+
+        Assert.False(started);
+        Assert.Equal(409, status);
+        Assert.Equal("Config reload is already running.", message);
+        Assert.False(request.Status().Running);
+    }
+
     private static ControlConfig Fan(string alias, string rpmSensor) => new()
     {
         Alias = alias,

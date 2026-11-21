@@ -8,36 +8,65 @@ namespace CoolingControl;
 
 public class ConfigHelper
 {
-    private readonly Config _config;
+    private Config _config = new();
     private readonly string _configFilePath;
-    private readonly Dictionary<string, SensorConfig> _sensorConfigsByAlias;
-    private readonly Dictionary<string, SensorConfig> _sensorConfigsByIdentifier;
-    private readonly HashSet<string> _sensorIdentifiers;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByAlias;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByIdentifier;
-    private readonly HashSet<string> _controlIdentifiers;
-    private readonly Dictionary<string, ControlConfig> _controlConfigsByRPMSensorIdentifier;
-    private readonly HashSet<string> _controlRPMSensorIdentifiers;
+    private Dictionary<string, SensorConfig> _sensorConfigsByAlias = new();
+    private Dictionary<string, SensorConfig> _sensorConfigsByIdentifier = new();
+    private HashSet<string> _sensorIdentifiers = [];
+    private Dictionary<string, ControlConfig> _controlConfigsByAlias = new();
+    private Dictionary<string, ControlConfig> _controlConfigsByIdentifier = new();
+    private HashSet<string> _controlIdentifiers = [];
+    private Dictionary<string, ControlConfig> _controlConfigsByRPMSensorIdentifier = new();
+    private HashSet<string> _controlRPMSensorIdentifiers = [];
     private readonly object _configLock = new();
 
     public ConfigHelper(string configFilePath)
     {
         _configFilePath = configFilePath;
-        _config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configFilePath))
-                    ?? throw new InvalidOperationException("Deserialized configuration is null.");
-        Validate(_config);
+        Install(ReadConfig(configFilePath));
         Log.Information("Configuration loaded successfully from {ConfigFilePath}", configFilePath);
+    }
 
-        _sensorConfigsByAlias = _config.Sensors.ToDictionary(f => f.Alias, f => f);
-        _sensorConfigsByIdentifier = _config.Sensors.ToDictionary(f => f.Identifier, f => f);
-        _sensorIdentifiers = _config.Sensors.Select(f => f.Identifier).ToHashSet();
-        _controlConfigsByAlias = _config.Controls.ToDictionary(f => f.Alias, f => f);
-        _controlConfigsByIdentifier = _config.Controls.ToDictionary(f => f.Identifier, f => f);
-        _controlIdentifiers = _config.Controls.Select(f => f.Identifier).ToHashSet();
-        _controlConfigsByRPMSensorIdentifier = _config.Controls
+    public void Reload()
+    {
+        var loaded = ReadConfig(_configFilePath);
+        Install(loaded);
+        Log.Information("Configuration reloaded from {ConfigFilePath}", _configFilePath);
+    }
+
+    private static Config ReadConfig(string configFilePath)
+    {
+        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configFilePath))
+                    ?? throw new InvalidOperationException("Deserialized configuration is null.");
+        Validate(config);
+        return config;
+    }
+
+    private void Install(Config config)
+    {
+        var sensorConfigsByAlias = config.Sensors.ToDictionary(f => f.Alias, f => f);
+        var sensorConfigsByIdentifier = config.Sensors.ToDictionary(f => f.Identifier, f => f);
+        var sensorIdentifiers = config.Sensors.Select(f => f.Identifier).ToHashSet();
+        var controlConfigsByAlias = config.Controls.ToDictionary(f => f.Alias, f => f);
+        var controlConfigsByIdentifier = config.Controls.ToDictionary(f => f.Identifier, f => f);
+        var controlIdentifiers = config.Controls.Select(f => f.Identifier).ToHashSet();
+        var controlConfigsByRPMSensorIdentifier = config.Controls
             .Where(c => !string.IsNullOrEmpty(c.RPMSensor))
             .ToDictionary(c => c.RPMSensor, c => c);
-        _controlRPMSensorIdentifiers = _controlConfigsByRPMSensorIdentifier.Keys.ToHashSet();
+        var controlRPMSensorIdentifiers = controlConfigsByRPMSensorIdentifier.Keys.ToHashSet();
+
+        lock (_configLock)
+        {
+            _config = config;
+            _sensorConfigsByAlias = sensorConfigsByAlias;
+            _sensorConfigsByIdentifier = sensorConfigsByIdentifier;
+            _sensorIdentifiers = sensorIdentifiers;
+            _controlConfigsByAlias = controlConfigsByAlias;
+            _controlConfigsByIdentifier = controlConfigsByIdentifier;
+            _controlIdentifiers = controlIdentifiers;
+            _controlConfigsByRPMSensorIdentifier = controlConfigsByRPMSensorIdentifier;
+            _controlRPMSensorIdentifiers = controlRPMSensorIdentifiers;
+        }
     }
 
     public void SaveConfig()

@@ -95,7 +95,7 @@ The installer creates a bare-bones `config.json` and `cooling_control.lua` in th
 - **Hardware config page.** The CoolingControl service must be running.
 - **Command line.** Stop the service first.
 
-Both write the same `config.json`. Choose **Restart service** on the tray menu before a newly saved sensor or control is read or driven.
+Both write the same `config.json`. On the hardware config page, choose **Reload config** before a newly saved sensor or control is read or driven. **Restart service** on the tray menu also loads the file.
 
 ### Hardware config page
 
@@ -103,7 +103,7 @@ Both write the same `config.json`. Choose **Restart service** on the tray menu b
 2. Open `http://localhost:19999/config`. The status page at `http://localhost:19999` links here as **Hardware config**.
 3. Add a sensor or control by picking a channel. Edit, delete, or reorder the rows already saved in `config.json`.
 
-The page does not edit calibration points or `ThermalMinControl`. **Calibrate** on a control, or **Calibrate all**, runs the fan sweep in the service. Control pauses until the sweep finishes, and the page stays open. A control needs an RPM sensor. What the columns show is described in [Monitoring Status (HTTP Dashboard)](#monitoring-status-http-dashboard). Continue with [Calibrate and edit the script](#calibrate-and-edit-the-script) when you want the command-line sweep instead. Starting the service at the end of that section loads entries saved by the page.
+The page does not edit calibration points or `ThermalMinControl`. **Calibrate** on a control, or **Calibrate all**, runs the fan sweep in the service. Control pauses until the sweep finishes, and the page stays open. A control needs an RPM sensor. **Reload config** rereads `config.json` and the control script without stopping the service. Control pauses while they load, and the page stays open. What the columns show is described in [Monitoring Status (HTTP Dashboard)](#monitoring-status-http-dashboard). Continue with [Calibrate and edit the script](#calibrate-and-edit-the-script) when you want the command-line sweep instead. **Restart service** on the tray menu also loads entries saved by the page.
 
 ### Command line
 
@@ -385,7 +385,7 @@ end
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
 - JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
-- The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. **Calibrate** and **Calibrate all** run the fan sweep in the service. Control pauses until it finishes, and the page stays open. The Calibration column shows `none` or the number of saved points. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. Choose **Restart service** on the tray menu before a saved entry is read or driven. `list-sensors` still prints the discovery log when the service is stopped.
+- The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. **Calibrate** and **Calibrate all** run the fan sweep in the service. Control pauses until it finishes, and the page stays open. The Calibration column shows `none` or the number of saved points. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. **Reload config** rereads `config.json` and the control script without stopping the service. Control pauses while they load. **Restart service** on the tray menu also loads the file. `list-sensors` still prints the discovery log when the service is stopped.
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration
 - To allow access from other devices on the network, set `"StatusServerBindAddress": "+"` in `config.json`

@@ -302,6 +302,45 @@ public class ConfigHelperTests : IDisposable
         Assert.Equal(["A", "B"], helper.Config.Sensors.Select(sensor => sensor.Alias));
     }
 
+    [Fact]
+    public void Reload_ReplacesAliasesFromChangedFile()
+    {
+        var helper = CreateConfig([]);
+        var replacement = new Config
+        {
+            ScriptPath = _scriptPath,
+            Sensors = [new() { Alias = "CPU Package", Identifier = "/cpu/0" }],
+            Controls = [new() { Alias = "Rear", Identifier = "/fan/1", RPMSensor = "/rpm/1" }]
+        };
+        File.WriteAllText(helper.ConfigFilePath, JsonSerializer.Serialize(replacement));
+
+        helper.Reload();
+
+        Assert.False(helper.ControlConfigsByAlias.ContainsKey("Fan"));
+        Assert.DoesNotContain("/fan/0", helper.ControlIdentifiers);
+        Assert.Equal("/fan/1", helper.ControlConfigsByAlias["Rear"].Identifier);
+        Assert.Equal("CPU Package", helper.SensorConfigsByIdentifier["/cpu/0"].Alias);
+        Assert.Equal("Rear", helper.ControlConfigsByRPMSensorIdentifier["/rpm/1"].Alias);
+    }
+
+    [Fact]
+    public void Reload_InvalidFile_LeavesPreviousAlias()
+    {
+        var helper = CreateConfig([]);
+        var replacement = new Config
+        {
+            ScriptPath = "",
+            Controls = [new() { Alias = "Rear", Identifier = "/fan/1" }]
+        };
+        File.WriteAllText(helper.ConfigFilePath, JsonSerializer.Serialize(replacement));
+
+        var error = Assert.Throws<InvalidOperationException>(() => helper.Reload());
+
+        Assert.Contains("validation failed", error.Message);
+        Assert.Equal("/fan/0", helper.ControlConfigsByAlias["Fan"].Identifier);
+        Assert.False(helper.ControlConfigsByAlias.ContainsKey("Rear"));
+    }
+
     private ConfigHelper CreateConfig(List<RPMCalibrationData> rpmCalibration)
     {
         var configPath = Path.Combine(_tempDir, $"{Path.GetRandomFileName()}.json");

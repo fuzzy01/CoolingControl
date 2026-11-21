@@ -23,6 +23,7 @@ public partial class StatusServer : IHostedService, IDisposable
     private readonly HardwareCatalog _hardwareCatalog;
     private readonly IStatusSnapshot _statusSnapshot;
     private readonly CalibrationRequest _calibration;
+    private readonly ConfigReload _reload;
     private HttpListener? _httpListener;
     private Task? _listenerTask;
     private CancellationTokenSource? _cts;
@@ -32,12 +33,14 @@ public partial class StatusServer : IHostedService, IDisposable
         ConfigHelper config,
         HardwareCatalog hardwareCatalog,
         IStatusSnapshot statusSnapshot,
-        CalibrationRequest calibration)
+        CalibrationRequest calibration,
+        ConfigReload reload)
     {
         _config = config;
         _hardwareCatalog = hardwareCatalog;
         _statusSnapshot = statusSnapshot;
         _calibration = calibration;
+        _reload = reload;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -140,6 +143,10 @@ public partial class StatusServer : IHostedService, IDisposable
             else if (path == "/api/calibrate")
             {
                 HandleCalibration(context);
+            }
+            else if (path == "/api/reload")
+            {
+                HandleReload(context);
             }
             else if (path == "/config")
             {

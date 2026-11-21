@@ -93,8 +93,46 @@ public partial class StatusServer
         }
 
         var (_, controls) = _config.SnapshotEntries();
-        _calibration.TryBegin(controls, alias, out var statusCode, out var message);
+        _calibration.TryBegin(controls, alias, out var statusCode, out var message, _reload.Status().Running);
         WriteCalibration(response, statusCode, message);
+    }
+
+    private void HandleReload(HttpListenerContext context)
+    {
+        var request = context.Request;
+        var response = context.Response;
+        if (!request.IsLocal)
+        {
+            response.StatusCode = 403;
+            response.Close();
+            return;
+        }
+
+        if (string.Equals(request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteReload(response, 200, _reload.Status().Message);
+            return;
+        }
+
+        if (!string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            response.StatusCode = 405;
+            response.Close();
+            return;
+        }
+
+        _reload.TryBegin(_calibration.Status().Running, out var statusCode, out var message);
+        WriteReload(response, statusCode, message);
+    }
+
+    private void WriteReload(HttpListenerResponse response, int statusCode, string message)
+    {
+        var status = _reload.Status();
+        WriteJson(response, statusCode, JsonSerializer.Serialize(new
+        {
+            running = status.Running,
+            message
+        }));
     }
 
     private void WriteCalibration(HttpListenerResponse response, int statusCode, string message)
@@ -431,7 +469,7 @@ public partial class StatusServer
                 table { width: 100%; border-collapse: collapse; }
                 th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; white-space: nowrap; }
                 button { margin-right: 6px; }
-                #add-sensor, #add-control { margin-top: 16px; }
+                #add-sensor, #add-control, #reload-config { margin-top: 16px; }
                 label { display: block; margin: 8px 0 2px; font-size: 13px; color: #555; }
                 input, select { padding: 4px 6px; }
                 .message { margin-top: 12px; font-weight: 600; }
@@ -441,7 +479,8 @@ public partial class StatusServer
             <div class="container">
                 <p><a href="/">Status</a></p>
                 <h1>Hardware config</h1>
-                <p class="note">Changes are saved immediately. Choose Restart service on the tray menu before a new entry is read or driven.</p>
+                <p class="note">Changes are saved immediately. Choose Reload config before a saved change is read or driven. Restart service on the tray menu also loads the file.</p>
+                <button id="reload-config" type="button">Reload config</button>
                 <div id="message" class="message"></div>
                 <div class="card">
                     <h2>Sensors</h2>
@@ -462,7 +501,9 @@ public partial class StatusServer
                 let catalog = null;
                 let catalogRequested = false;
                 let calibrating = false;
+                let reloading = false;
                 let calibrationTimer = 0;
+                let reloadTimer = 0;
 
                 function text(value) {
                     return value === null || value === undefined || value === '' ? '' : String(value);
@@ -499,7 +540,9 @@ public partial class StatusServer
                     document.getElementById('sensors').innerHTML = sensorTable(config.sensors || []);
                     document.getElementById('controls').innerHTML = controlTable(config.controls || []);
                     const controls = config.controls || [];
-                    document.getElementById('calibrate-all').disabled = calibrating || controls.length === 0 ||
+                    const busy = calibrating || reloading;
+                    document.getElementById('reload-config').disabled = busy;
+                    document.getElementById('calibrate-all').disabled = busy || controls.length === 0 ||
                         controls.some(function (control) { return !control.rpmSensor; });
                 }
 
@@ -558,7 +601,7 @@ public partial class StatusServer
                             '<button type="button" data-edit-control="' + escapeHtml(control.alias) +
                             '">Edit</button><button type="button" data-delete-control="' + escapeHtml(control.alias) +
                             '">Delete</button><button type="button" data-calibrate="' + escapeHtml(control.alias) + '"' +
-                            (calibrating || !control.rpmSensor ? ' disabled' : '') +
+                            (calibrating || reloading || !control.rpmSensor ? ' disabled' : '') +
                             '>Calibrate</button></td></tr>';
                     }).join('');
                     return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Step up</th><th>Step down</th><th>Min start</th><th>Min stop</th><th>Zero RPM</th><th>RPM sensor</th><th>Beat detune</th><th>Calibration</th><th></th></tr>' + rows + '</table>';
@@ -669,7 +712,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
+                            ? 'Saved. Choose Reload config before this is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -705,7 +748,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
+                            ? 'Saved. Choose Reload config before this is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -753,7 +796,7 @@ public partial class StatusServer
                         });
                         clearForms();
                         document.getElementById('message').textContent = response.ok
-                            ? 'Saved. Choose Restart service on the tray menu before this entry is read or driven.'
+                            ? 'Saved. Choose Reload config before this is read or driven.'
                             : 'Save failed.';
                         if (response.ok) await loadConfig();
                     });
@@ -761,6 +804,7 @@ public partial class StatusServer
 
                 document.getElementById('add-sensor').addEventListener('click', function () { showAdd('sensors'); });
                 document.getElementById('add-control').addEventListener('click', function () { showAdd('controls'); });
+                document.getElementById('reload-config').addEventListener('click', function () { startReload(); });
                 document.getElementById('calibrate-all').addEventListener('click', function () { startCalibration('all'); });
                 document.body.addEventListener('click', function (event) {
                     const target = event.target;
@@ -774,7 +818,7 @@ public partial class StatusServer
                 });
 
                 async function startCalibration(alias) {
-                    if (calibrating) return;
+                    if (calibrating || reloading) return;
                     if (!confirm('Fans will run through the sweep. Control pauses until it finishes.'))
                         return;
                     calibrating = true;
@@ -801,6 +845,59 @@ public partial class StatusServer
                         return;
                     }
                     watchCalibration();
+                }
+
+                async function startReload() {
+                    if (reloading || calibrating) return;
+                    if (!confirm('Control pauses while the saved config and script load.'))
+                        return;
+                    reloading = true;
+                    render();
+                    try {
+                        const response = await fetch('/api/reload', { method: 'POST' });
+                        let data = {};
+                        try { data = await response.json(); } catch (error) { data = {}; }
+                        if (data.message)
+                            document.getElementById('message').textContent = data.message;
+                        if (response.status !== 202) {
+                            if (data.running) {
+                                watchReload();
+                                return;
+                            }
+                            reloading = false;
+                            render();
+                            return;
+                        }
+                    } catch (error) {
+                        reloading = false;
+                        render();
+                        document.getElementById('message').textContent = 'Config reload failed to start.';
+                        return;
+                    }
+                    watchReload();
+                }
+
+                async function watchReload() {
+                    try {
+                        const response = await fetch('/api/reload');
+                        if (!response.ok) throw new Error('status');
+                        const data = await response.json();
+                        const wasRunning = reloading;
+                        reloading = !!data.running;
+                        if (data.message)
+                            document.getElementById('message').textContent = data.message;
+                        render();
+                        if (reloading) {
+                            if (reloadTimer) clearTimeout(reloadTimer);
+                            reloadTimer = setTimeout(watchReload, 1000);
+                        } else if (wasRunning) {
+                            await loadConfig();
+                        }
+                    } catch (error) {
+                        if (!reloading) return;
+                        if (reloadTimer) clearTimeout(reloadTimer);
+                        reloadTimer = setTimeout(watchReload, 1000);
+                    }
                 }
 
                 async function watchCalibration() {
@@ -841,7 +938,7 @@ public partial class StatusServer
                         body: JSON.stringify({ aliases: aliases })
                     });
                     document.getElementById('message').textContent = response.ok
-                        ? 'Saved. Choose Restart service on the tray menu before this order is used.'
+                        ? 'Saved. Choose Reload config before this order is used.'
                         : 'Reorder failed.';
                     if (response.ok) await loadConfig();
                 }
@@ -849,12 +946,15 @@ public partial class StatusServer
                 async function removeEntry(kind, alias) {
                     const response = await fetch('/api/' + kind + '/' + encodeURIComponent(alias), { method: 'DELETE' });
                     document.getElementById('message').textContent = response.ok
-                        ? 'Deleted. Choose Restart service on the tray menu before this change takes effect.'
+                        ? 'Deleted. Choose Reload config before this is read or driven.'
                         : 'Delete failed.';
                     if (response.ok) await loadConfig();
                 }
 
-                loadConfig().then(watchCalibration);
+                loadConfig().then(function () {
+                    watchCalibration();
+                    watchReload();
+                });
             </script>
         </body>
         </html>

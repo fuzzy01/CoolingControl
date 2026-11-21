@@ -143,6 +143,7 @@ class Program
                 services.AddSingleton(hardwareCatalog);
                 services.AddSingleton<IStatusSnapshot, StatusSnapshot>();
                 services.AddSingleton<CalibrationRequest>();
+                services.AddSingleton<ConfigReload>();
                 services.AddHostedService<StatusServer>();
                 services.AddHostedService<CoolingControlDaemon>();
             });

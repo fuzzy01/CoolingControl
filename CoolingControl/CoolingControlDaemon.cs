@@ -20,7 +20,8 @@ public class CoolingControlDaemon : BackgroundService
     private readonly HardwareCatalog _hardwareCatalog;
     private readonly IStatusSnapshot _statusSnapshot;
     private readonly CalibrationRequest _calibration;
-    private readonly int _intervalMs;
+    private readonly ConfigReload _reload;
+    private int _intervalMs;
     private readonly BlockingCollection<PowerEvent> _messageQueue;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
 
@@ -29,11 +30,13 @@ public class CoolingControlDaemon : BackgroundService
         HardwareCatalog hardwareCatalog,
         IStatusSnapshot statusSnapshot,
         CalibrationRequest calibration,
+        ConfigReload reload,
         IHostApplicationLifetime hostApplicationLifetime)
     {
         _config = config;
         _hardwareCatalog = hardwareCatalog;
         _calibration = calibration;
+        _reload = reload;
         _monitor = new DefaultMonitorPlatform(_config, PlatformAdapterFactory.Create(_config));
         _script = new ControlScript(_config);
         _CSVLogger = new CSVLogger(_config);
@@ -155,6 +158,10 @@ public class CoolingControlDaemon : BackgroundService
                         if (_calibration.TryTake(out var calibrateAlias))
                         {
                             RunCalibration(calibrateAlias, cancellationToken);
+                        }
+                        else if (_reload.TryTake())
+                        {
+                            RunReload();
                         }
                         else
                         {
@@ -296,6 +303,38 @@ public class CoolingControlDaemon : BackgroundService
 
     private void RunCalibration(string alias, CancellationToken cancellationToken)
     {
+        RestartControl(
+            () => new ControlCalibration(_config, alias, _hostApplicationLifetime).Run(cancellationToken),
+            saved => _calibration.Finish(saved, alias),
+            "Calibration failed");
+    }
+
+    private void RunReload()
+    {
+        RestartControl(ReloadAppliedConfig, _reload.Finish, "Config reload failed");
+    }
+
+    private bool ReloadAppliedConfig()
+    {
+        _config.Reload();
+        _intervalMs = _config.Config.UpdateIntervalMs;
+        ApplyLogLevel(_config.Config.LogLevel);
+        return true;
+    }
+
+    private static void ApplyLogLevel(string logLevel)
+    {
+        Log.CloseAndFlush();
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Is(Enum.Parse<Serilog.Events.LogEventLevel>(logLevel))
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .WriteTo.File("logs/cooling_control.log", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
+    }
+
+    private void RestartControl(Func<bool> work, Action<bool> finish, string failureLog)
+    {
         var saved = false;
         try
         {
@@ -326,11 +365,11 @@ public class CoolingControlDaemon : BackgroundService
                 Log.Error(ex, "Error disposing monitor");
             }
 
-            saved = new ControlCalibration(_config, alias, _hostApplicationLifetime).Run(cancellationToken);
+            saved = work();
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Calibration failed");
+            Log.Error(ex, "{Failure}", failureLog);
             saved = false;
         }
         finally
@@ -354,11 +393,11 @@ public class CoolingControlDaemon : BackgroundService
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to resume control after calibration");
+                Log.Error(ex, "Failed to resume control");
                 resumeError = ex;
             }
 
-            _calibration.Finish(saved, alias);
+            finish(saved);
             if (resumeError != null)
                 throw resumeError;
         }
