@@ -20,6 +20,8 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
     private readonly ConfigHelper _config;
     private readonly Dictionary<string, bool> _controlStates;
     private readonly Dictionary<string, float> _previousControlValues;
+    // A non-zero duty after resume can be too low to start a stopped fan.
+    private readonly HashSet<string> _resumeStartPending = new();
 
     public DefaultMonitorPlatform(ConfigHelper config, IPlatformAdapter adapter)
     {
@@ -33,11 +35,13 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
 
     public void Suspend()
     {
+        _resumeStartPending.Clear();
         _adapter.Suspend();
     }
 
     public void Resume()
     {
+        _resumeStartPending.Clear();
         _adapter.Resume();
         var currentValues = GetControlValues();
         _previousControlValues.Clear();
@@ -52,6 +56,14 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
         }
         // Reapply control values and take control
         SetControls(_previousControlValues.ToDictionary(kvp => kvp.Key, kvp => kvp.Value), true);
+
+        foreach (var kvp in _previousControlValues)
+        {
+            if (!_config.ControlConfigsByAlias.TryGetValue(kvp.Key, out var controlConfig))
+                continue;
+            if (kvp.Value > 0f && kvp.Value < controlConfig.MinStart)
+                _resumeStartPending.Add(kvp.Key);
+        }
     }
 
     public Dictionary<string, float?> GetSensorValues()
@@ -102,6 +114,8 @@ public class DefaultMonitorPlatform : IMonitoringPlatform
             // Unavailable at init/resume (e.g. GPU fan not yet claimed) — treat as stopped at 0%.
             float previousControlValue = _previousControlValues.GetValueOrDefault(alias);
             bool isCurrentlyRunning = _controlStates.GetValueOrDefault(alias);
+            if (controlValue > 0f && _resumeStartPending.Remove(alias))
+                isCurrentlyRunning = false;
 
             // Apply step up / step down logic
             if (adjustedControlValue > previousControlValue)

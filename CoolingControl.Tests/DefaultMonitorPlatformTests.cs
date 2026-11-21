@@ -194,6 +194,85 @@ public class DefaultMonitorPlatformTests : IDisposable
     }
 
     [Fact]
+    public void Resume_SubMinStartDuty_PulsesMinStartOnce()
+    {
+        // Restored 25% is above 0 and below MinStart 30, so the fan is marked running and would never start.
+        var (_, adapter, platform) = BuildPlatform(25f, MakeCtrl(stepDown: 100, minStop: 20, minStart: 30));
+
+        platform.Resume();
+        Assert.Equal(25f, adapter.LastSetValue("/fan/0"));
+
+        platform.SetControls(new() { ["Fan"] = 25f });
+        Assert.Equal(30f, adapter.LastSetValue("/fan/0"));
+
+        platform.SetControls(new() { ["Fan"] = 25f });
+        Assert.Equal(25f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void Resume_ZeroRequest_KeepsPulseForLaterRunningCommand()
+    {
+        var (_, adapter, platform) = BuildPlatform(25f, MakeCtrl(stepDown: 8, minStart: 30));
+
+        platform.Resume();
+        platform.SetControls(new() { ["Fan"] = 0f });
+        Assert.Equal(17f, adapter.LastSetValue("/fan/0"));
+
+        platform.SetControls(new() { ["Fan"] = 25f });
+        Assert.Equal(30f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void Resume_DutyAtOrAboveMinStart_DoesNotPulse()
+    {
+        var (_, adapter, platform) = BuildPlatform(40f, MakeCtrl(stepDown: 100, minStop: 20, minStart: 30));
+
+        platform.Resume();
+        platform.SetControls(new() { ["Fan"] = 22f });
+
+        Assert.Equal(22f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void Resume_StoppedDuty_StillUsesMinStart()
+    {
+        var (_, adapter, platform) = BuildPlatform(0f, MakeCtrl(stepUp: 100, minStart: 20));
+
+        platform.Resume();
+        platform.SetControls(new() { ["Fan"] = 5f });
+
+        Assert.Equal(20f, adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void Resume_ZeroRPM_ZeroRequest_RampsThenReleases()
+    {
+        var (_, adapter, platform) = BuildPlatform(25f, MakeCtrl(stepDown: 8, minStart: 30, zeroRPM: true));
+
+        platform.Resume();
+        platform.SetControls(new() { ["Fan"] = 0f });
+        Assert.Equal(17f, adapter.LastSetValue("/fan/0"));
+
+        var (_, releaseAdapter, releasePlatform) = BuildPlatform(25f, MakeCtrl(stepDown: 100, minStart: 30, zeroRPM: true));
+        releasePlatform.Resume();
+        releasePlatform.SetControls(new() { ["Fan"] = 0f });
+        Assert.Equal(IPlatformAdapter.DefaultControlValue, releaseAdapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
+    public void Suspend_ClearsPendingMinStartPulse()
+    {
+        var (_, adapter, platform) = BuildPlatform(25f, MakeCtrl(minStart: 30));
+
+        platform.Resume();
+        platform.Suspend();
+        platform.SetControls(new() { ["Fan"] = 25f });
+
+        // Unchanged 25% is not sent again. A leftover pulse would send MinStart (30).
+        Assert.Null(adapter.LastSetValue("/fan/0"));
+    }
+
+    [Fact]
     public void SetControls_AfterResumeWithNullValue_DoesNotThrow_TreatsAsStopped()
     {
         var (_, adapter, platform) = BuildPlatform(50f, MakeCtrl(stepUp: 8, minStart: 0));

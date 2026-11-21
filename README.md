@@ -210,6 +210,7 @@ Stop the service first: `sc.exe stop CoolingControl`.
   - `Platform`: The platform adapter that provides this sensor or control. Defaults to `"LHM"` (Libre Hardware Monitor). Set to the name of a plugin adapter to route this entry to a plugin (see [Plugin Support](#plugin-support)).
   - `StepUp`: Maximum step up in % per update interval (default: 8%).
   - `StepDown`: Maximum step down in % per update interval (default: 8%).
+  - `MinStart`: Lowest duty that will start a stopped fan. After resume, a restored duty below `MinStart` is raised to `MinStart` on the next running command, once.
   - `ZeroRPM`: If true, when the control is set to 0 RPM the control is handed back to the hardware, it is needed to support GPU fans (default: false).
   - `RPMSensor`: The RPM sensor ID for the fan/pump (e.g., "/lpc/nct6798d/0/fan/1").
   - `BeatDetuneMinSeparationRpm`: Minimum RPM gap between fans that opt in to beat detune (default: 150). A smaller positive gap is opened by raising the faster fan.
