@@ -236,15 +236,13 @@ public partial class StatusServer
             response.StatusCode = 405;
             response.Close();
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            response.StatusCode = 400;
-            response.Close();
+            WriteFailure(response, ex);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            response.StatusCode = 400;
-            response.Close();
+            WriteFailure(response, ex);
         }
     }
 
@@ -275,15 +273,13 @@ public partial class StatusServer
                 _config.ReorderControls(aliases);
             WriteJson(response, 200, JsonSerializer.Serialize(new { aliases }));
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            response.StatusCode = 400;
-            response.Close();
+            WriteFailure(response, ex);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            response.StatusCode = 400;
-            response.Close();
+            WriteFailure(response, ex);
         }
     }
 
@@ -441,6 +437,11 @@ public partial class StatusServer
         return false;
     }
 
+    private static void WriteFailure(HttpListenerResponse response, Exception ex)
+    {
+        WriteJson(response, 400, JsonSerializer.Serialize(new { message = ex.Message }));
+    }
+
     private static void WriteJson(HttpListenerResponse response, int statusCode, string json)
     {
         var buffer = Encoding.UTF8.GetBytes(json);
@@ -479,7 +480,7 @@ public partial class StatusServer
             <div class="container">
                 <p><a href="/">Status</a></p>
                 <h1>Hardware config</h1>
-                <p class="note">Changes are saved immediately. Choose Reload config before a saved change is read or driven. Restart service on the tray menu also loads the file.</p>
+                <p class="note">Changes are saved immediately. Choose Reload config before a saved change is read or driven. Add, edit, delete, and reorder are unavailable while a reload or calibration is running. Restart service on the tray menu also loads the file.</p>
                 <button id="reload-config" type="button">Reload config</button>
                 <div id="message" class="message"></div>
                 <div class="card">
@@ -542,13 +543,23 @@ public partial class StatusServer
                     const controls = config.controls || [];
                     const busy = calibrating || reloading;
                     document.getElementById('reload-config').disabled = busy;
+                    document.getElementById('add-sensor').disabled = busy;
+                    document.getElementById('add-control').disabled = busy;
                     document.getElementById('calibrate-all').disabled = busy || controls.length === 0 ||
                         controls.some(function (control) { return !control.rpmSensor; });
+                    const saveAdd = document.getElementById('save-add');
+                    const saveEdit = document.getElementById('save-edit');
+                    if (saveAdd) saveAdd.disabled = busy;
+                    if (saveEdit) saveEdit.disabled = busy;
+                }
+
+                function isBusy() {
+                    return calibrating || reloading;
                 }
 
                 function moveButtons(kind, alias, index, count) {
-                    const up = index > 0 ? '' : ' disabled';
-                    const down = index < count - 1 ? '' : ' disabled';
+                    const up = !isBusy() && index > 0 ? '' : ' disabled';
+                    const down = !isBusy() && index < count - 1 ? '' : ' disabled';
                     return '<button type="button" data-move-' + kind + '="up" data-alias="' + escapeHtml(alias) + '" aria-label="Move up"' + up + '>↑</button>' +
                         '<button type="button" data-move-' + kind + '="down" data-alias="' + escapeHtml(alias) + '" aria-label="Move down"' + down + '>↓</button>';
                 }
@@ -581,9 +592,11 @@ public partial class StatusServer
                         return '<tr><td>' + escapeHtml(sensor.alias) + '</td><td>' + escapeHtml(sensor.platform) +
                             '</td><td>' + escapeHtml(configuredChannelLabel(sensor)) + '</td><td>' + escapeHtml(sensor.alertMax) +
                             '</td><td>' + moveButtons('sensor', sensor.alias, index, sensors.length) +
-                            '<button type="button" data-edit-sensor="' + escapeHtml(sensor.alias) +
-                            '">Edit</button><button type="button" data-delete-sensor="' + escapeHtml(sensor.alias) +
-                            '">Delete</button></td></tr>';
+                            '<button type="button" data-edit-sensor="' + escapeHtml(sensor.alias) + '"' +
+                            (isBusy() ? ' disabled' : '') +
+                            '>Edit</button><button type="button" data-delete-sensor="' + escapeHtml(sensor.alias) + '"' +
+                            (isBusy() ? ' disabled' : '') +
+                            '>Delete</button></td></tr>';
                     }).join('');
                     return '<table><tr><th>Alias</th><th>Platform</th><th>Channel</th><th>Alert max</th><th></th></tr>' + rows + '</table>';
                 }
@@ -598,9 +611,11 @@ public partial class StatusServer
                             '</td><td>' + escapeHtml(rpmSensorLabel(control)) + '</td><td>' + (control.beatDetune ? 'yes' : 'no') +
                             '</td><td>' + calibrationLabel(control) +
                             '</td><td>' + moveButtons('control', control.alias, index, controls.length) +
-                            '<button type="button" data-edit-control="' + escapeHtml(control.alias) +
-                            '">Edit</button><button type="button" data-delete-control="' + escapeHtml(control.alias) +
-                            '">Delete</button><button type="button" data-calibrate="' + escapeHtml(control.alias) + '"' +
+                            '<button type="button" data-edit-control="' + escapeHtml(control.alias) + '"' +
+                            (isBusy() ? ' disabled' : '') +
+                            '>Edit</button><button type="button" data-delete-control="' + escapeHtml(control.alias) + '"' +
+                            (isBusy() ? ' disabled' : '') +
+                            '>Delete</button><button type="button" data-calibrate="' + escapeHtml(control.alias) + '"' +
                             (calibrating || reloading || !control.rpmSensor ? ' disabled' : '') +
                             '>Calibrate</button></td></tr>';
                     }).join('');
@@ -635,6 +650,7 @@ public partial class StatusServer
                 }
 
                 async function showAdd(kind) {
+                    if (isBusy()) return;
                     const channels = await ensureCatalog();
                     if (channels.length > 0) render();
                     const wantControl = kind === 'controls';
@@ -687,6 +703,7 @@ public partial class StatusServer
                         clearForms();
                     });
                     document.getElementById('save-add').addEventListener('click', async function () {
+                        if (isBusy()) return;
                         const channel = choices[Number(select.value)];
                         const body = {
                             platform: channel.platform,
@@ -713,9 +730,17 @@ public partial class StatusServer
                         clearForms();
                         document.getElementById('message').textContent = response.ok
                             ? 'Saved. Choose Reload config before this is read or driven.'
-                            : 'Save failed.';
+                            : await rejectedText(response, 'Save failed.');
                         if (response.ok) await loadConfig();
                     });
+                }
+
+                async function rejectedText(response, fallback) {
+                    try {
+                        const data = await response.json();
+                        if (data && data.message) return data.message;
+                    } catch (error) {}
+                    return fallback;
                 }
 
                 function findSensor(alias) {
@@ -727,6 +752,7 @@ public partial class StatusServer
                 }
 
                 async function editSensor(alias) {
+                    if (isBusy()) return;
                     const sensor = findSensor(alias);
                     if (!sensor) return;
                     setForm('sensors',
@@ -735,6 +761,7 @@ public partial class StatusServer
                         '"><label>Alert max</label><input id="alert-max" value="' + escapeHtml(sensor.alertMax) +
                         '"><button type="button" id="save-edit" style="display:block;margin-top:12px">Save</button></div>');
                     document.getElementById('save-edit').addEventListener('click', async function () {
+                        if (isBusy()) return;
                         const alertMax = document.getElementById('alert-max').value;
                         const response = await fetch('/api/sensors/' + encodeURIComponent(alias), {
                             method: 'PUT',
@@ -749,12 +776,13 @@ public partial class StatusServer
                         clearForms();
                         document.getElementById('message').textContent = response.ok
                             ? 'Saved. Choose Reload config before this is read or driven.'
-                            : 'Save failed.';
+                            : await rejectedText(response, 'Save failed.');
                         if (response.ok) await loadConfig();
                     });
                 }
 
                 async function editControl(alias) {
+                    if (isBusy()) return;
                     const control = findControl(alias);
                     if (!control) return;
                     const channels = await ensureCatalog();
@@ -778,6 +806,7 @@ public partial class StatusServer
                         '<label><input id="beat-detune" type="checkbox"' + (control.beatDetune ? ' checked' : '') + '> Beat detune</label>' +
                         '<button type="button" id="save-edit" style="display:block;margin-top:16px">Save</button></div>');
                     document.getElementById('save-edit').addEventListener('click', async function () {
+                        if (isBusy()) return;
                         const response = await fetch('/api/controls/' + encodeURIComponent(alias), {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -797,16 +826,23 @@ public partial class StatusServer
                         clearForms();
                         document.getElementById('message').textContent = response.ok
                             ? 'Saved. Choose Reload config before this is read or driven.'
-                            : 'Save failed.';
+                            : await rejectedText(response, 'Save failed.');
                         if (response.ok) await loadConfig();
                     });
                 }
 
-                document.getElementById('add-sensor').addEventListener('click', function () { showAdd('sensors'); });
-                document.getElementById('add-control').addEventListener('click', function () { showAdd('controls'); });
+                document.getElementById('add-sensor').addEventListener('click', function () {
+                    if (isBusy()) return;
+                    showAdd('sensors');
+                });
+                document.getElementById('add-control').addEventListener('click', function () {
+                    if (isBusy()) return;
+                    showAdd('controls');
+                });
                 document.getElementById('reload-config').addEventListener('click', function () { startReload(); });
                 document.getElementById('calibrate-all').addEventListener('click', function () { startCalibration('all'); });
                 document.body.addEventListener('click', function (event) {
+                    if (isBusy()) return;
                     const target = event.target;
                     if (target.dataset.moveSensor) moveEntry('sensors', target.dataset.alias, target.dataset.moveSensor);
                     if (target.dataset.editSensor) editSensor(target.dataset.editSensor);
@@ -924,6 +960,7 @@ public partial class StatusServer
                 }
 
                 async function moveEntry(kind, alias, direction) {
+                    if (isBusy()) return;
                     const items = kind === 'sensors' ? config.sensors : config.controls;
                     const aliases = items.map(function (item) { return item.alias; });
                     const index = aliases.indexOf(alias);
@@ -939,15 +976,16 @@ public partial class StatusServer
                     });
                     document.getElementById('message').textContent = response.ok
                         ? 'Saved. Choose Reload config before this order is used.'
-                        : 'Reorder failed.';
+                        : await rejectedText(response, 'Reorder failed.');
                     if (response.ok) await loadConfig();
                 }
 
                 async function removeEntry(kind, alias) {
+                    if (isBusy()) return;
                     const response = await fetch('/api/' + kind + '/' + encodeURIComponent(alias), { method: 'DELETE' });
                     document.getElementById('message').textContent = response.ok
                         ? 'Deleted. Choose Reload config before this is read or driven.'
-                        : 'Delete failed.';
+                        : await rejectedText(response, 'Delete failed.');
                     if (response.ok) await loadConfig();
                 }
 
