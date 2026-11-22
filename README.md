@@ -379,12 +379,12 @@ end
 - The application runs a local HTTP status server on `localhost:19999` (configurable via `StatusServerPort` and `StatusServerBindAddress` in `config.json`)
 - Open a browser and navigate to: `http://localhost:19999`
 - The dashboard displays:
-  - **Sensors**: Real-time sensor values (temperatures, power, load, etc.) with aliases
+  - **Sensors**: Real-time sensor values (temperatures, power, load, etc.) with aliases. A sensor chart draws a dashed line at `AlertMax` when that sensor has one.
   - **Controls**: Current control outputs (fan/pump speeds in RPM or %)
   - **Service Info**: Uptime, last update time, script path, update interval
   - **Profile**: When `Profiles` is non-empty, one button per name. The active name is highlighted. Choosing a button switches the profile on the next control tick.
 - The dashboard auto-refreshes every second
-- JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, and `alerts`)
+- JSON API available at: `http://localhost:19999/api/status` (includes `activeProfile`, `profiles`, `alerts`, and `alertMax`)
 - The status page links to the hardware config page as **Hardware config**. The page itself is `http://localhost:19999/config`. It lists the sensors and controls saved in `config.json`. The Channel column uses the same `hardware / name (type)` text as the add list, and the RPM sensor column uses the fan name from that list. You can edit parameters other than calibration and `ThermalMinControl`, delete an entry, add one by picking a channel, or move a row up or down. **Calibrate** and **Calibrate all** run the fan sweep in the service. Control pauses until it finishes, and the page stays open. The Calibration column shows `none` or the number of saved points. The catalog is read once when the page opens, and again only if that read was empty and you add or edit a control. Add, edit, delete, and reorder are accepted only from the same machine. **Reload config** rereads `config.json` and the control script without stopping the service. Control pauses while they load. **Restart service** on the tray menu also loads the file. `list-sensors` still prints the discovery log when the service is stopped.
 - Switch profile with `POST http://localhost:19999/api/profile` and body `{ "name": "silent" }`. The request is accepted only from the same machine; other devices receive 403 even when `StatusServerBindAddress` is `"+"`. An unknown name receives 400. A successful change is saved to `config.json`.
 - Prometheus metrics available at: `http://localhost:19999/metrics` — exposes `sensor_value{name="..."}` and `control_output{name="..."}` gauges for Grafana integration

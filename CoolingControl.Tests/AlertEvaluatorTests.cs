@@ -37,6 +37,22 @@ public class AlertEvaluatorTests
     }
 
     [Fact]
+    public void AlertLimits_KeepsSetMaximumsOnly()
+    {
+        var limits = AlertEvaluator.AlertLimits(new List<SensorConfig>
+        {
+            new() { Alias = "CPU Package", Identifier = "/cpu/0", AlertMax = 90f },
+            new() { Alias = "GPU Core", Identifier = "/gpu/0" },
+            new() { Alias = "", Identifier = "/empty", AlertMax = 70f }
+        });
+
+        Assert.Equal(90f, limits["CPU Package"]);
+        Assert.False(limits.ContainsKey("GPU Core"));
+        Assert.False(limits.ContainsKey(""));
+        Assert.Empty(AlertEvaluator.AlertLimits(null));
+    }
+
+    [Fact]
     public void Evaluate_Temperature_HoldsUntilFivePercentBelowLimit()
     {
         var limits = new List<SensorConfig>

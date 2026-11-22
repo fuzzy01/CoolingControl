@@ -11,6 +11,22 @@ public static class AlertEvaluator
     public static int ErrorBudgetThreshold(int maxControlLoopErrors) =>
         (int)Math.Ceiling(maxControlLoopErrors * 0.75);
 
+    public static Dictionary<string, float> AlertLimits(IEnumerable<SensorConfig>? sensorConfigs)
+    {
+        var limits = new Dictionary<string, float>();
+        if (sensorConfigs == null)
+            return limits;
+
+        foreach (var sensor in sensorConfigs)
+        {
+            if (sensor.AlertMax is not float max || string.IsNullOrEmpty(sensor.Alias))
+                continue;
+            limits[sensor.Alias] = max;
+        }
+
+        return limits;
+    }
+
     public static float ReleaseBelow(float max) => max - Math.Max(max * 0.05f, 1f);
 
     public static IReadOnlyList<Alert> Evaluate(

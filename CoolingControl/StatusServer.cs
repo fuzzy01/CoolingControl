@@ -190,6 +190,7 @@ public partial class StatusServer : IHostedService, IDisposable
     {
         var (sensors, controls, controlRpm, lastUpdate) = _statusSnapshot.GetSnapshot();
         var (sensorHistory, controlHistory) = _statusSnapshot.GetHistory();
+        var (configuredSensors, _) = _config.SnapshotEntries();
         var uptime = DateTime.UtcNow - _statusSnapshot.StartTime;
 
         var data = new
@@ -203,6 +204,7 @@ public partial class StatusServer : IHostedService, IDisposable
             activeProfile = _config.GetActiveProfile(),
             profiles = _config.Config.Profiles ?? [],
             alerts = _statusSnapshot.GetAlerts().Select(alert => new { key = alert.Key, message = alert.Message }),
+            alertMax = AlertEvaluator.AlertLimits(configuredSensors),
             sensors,
             controls,
             controlRpm,
@@ -511,7 +513,35 @@ public partial class StatusServer : IHostedService, IDisposable
             }
         }
 
+        function alertLimitDataset(history, limit) {
+            return {
+                label: 'Alert max',
+                data: Array.from({length: history.length}, function () { return limit; }),
+                borderColor: '#c53030',
+                borderDash: [4, 4],
+                borderWidth: 1,
+                tension: 0,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                fill: false
+            };
+        }
+
+        function applyAlertLimit(chart, history, limit) {
+            const hasLimit = typeof limit === 'number' && !Number.isNaN(limit);
+            if (hasLimit) {
+                const dataset = alertLimitDataset(history, limit);
+                if (chart.data.datasets.length > 1)
+                    chart.data.datasets[1] = dataset;
+                else
+                    chart.data.datasets.push(dataset);
+            } else if (chart.data.datasets.length > 1) {
+                chart.data.datasets.pop();
+            }
+        }
+
         function updateCharts(data) {
+            const alertMax = data.alertMax || {};
             Object.entries(data.history.sensors).forEach(([alias, history]) => {
                 const canvasId = 'chart-sensor-' + sanitizeId(alias);
                 const canvas = document.getElementById(canvasId);
@@ -519,27 +549,32 @@ public partial class StatusServer : IHostedService, IDisposable
 
                 const chartId = 'sensor-' + alias;
                 const labels = Array.from({length: history.length}, (_, i) => i - history.length + 1);
+                const limit = alertMax[alias];
 
                 if (charts[chartId]) {
                     charts[chartId].data.labels = labels;
                     charts[chartId].data.datasets[0].data = history;
+                    applyAlertLimit(charts[chartId], history, limit);
                     charts[chartId].update('none');
                 } else {
+                    const datasets = [{
+                        label: alias,
+                        data: history,
+                        borderColor: chartColors[colorIndex % chartColors.length],
+                        backgroundColor: chartColors[colorIndex % chartColors.length] + '15',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        fill: true
+                    }];
+                    if (typeof limit === 'number' && !Number.isNaN(limit))
+                        datasets.push(alertLimitDataset(history, limit));
                     charts[chartId] = new Chart(canvas.getContext('2d'), {
                         type: 'line',
                         data: {
                             labels: labels,
-                            datasets: [{
-                                label: alias,
-                                data: history,
-                                borderColor: chartColors[colorIndex % chartColors.length],
-                                backgroundColor: chartColors[colorIndex % chartColors.length] + '15',
-                                borderWidth: 2,
-                                tension: 0.4,
-                                pointRadius: 0,
-                                pointHoverRadius: 4,
-                                fill: true
-                            }]
+                            datasets: datasets
                         },
                         options: {
                             responsive: true,
